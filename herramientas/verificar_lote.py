@@ -123,6 +123,10 @@ def comprobar_sopas(fichas_pdf, sol_pdf):
         cuenta = collections.Counter()
         for w in lista:
             ap = buscar(filas, norm(w))
+            # un palíndromo (OSO, ANA…) se lee desde los dos extremos: es una sola aparición
+            porExtremos = {}
+            for x in ap: porExtremos.setdefault(x[:2], x)
+            ap = set(porExtremos.values())
             if len(ap) != 1: print(cod, w, 'aparece', len(ap), 'veces'); errores += 1; continue
             (a, b, d), = [(x[0], x[1], x[2]) for x in ap]
             ds = {(0,1):'E',(1,0):'S',(1,1):'SE',(-1,1):'NE',(0,-1):'E',(-1,0):'S',(-1,-1):'SE',(1,-1):'NE'}[d]

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banco de trabajo</title>
+<meta name="description" content="Generador de fichas para el banco de trabajo: operaciones, sopas de letras y crucigramas con pictogramas, con su solucionario.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='4' width='18' height='24' rx='2' fill='%23fff' stroke='%231D3557' stroke-width='2'/%3E%3Cpath d='M11 11h10M11 16h10M11 21h6' stroke='%232A9D8F' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  @font-face {
+    font-family: "Liberation Sans Banco";
+    src: url("fuentes/LiberationSans-Bold.ttf") format("truetype");
+    font-weight: 700; font-display: swap;
+  }
+  :root {
+    --papel: #F6F8FB;
+    --cuadricula: #E3E8EF;
+    --hoja: #FFFFFF;
+    --tinta: #1B2332;
+    --marino: #1D3557;
+    --suave: #5B6577;
+    --turquesa: #2A9D8F;
+    --turquesa-osc: #1F7A6F;
+    --ambar: #E9A23B;
+    --azul-op: #2563EB;
+    --error: #B42318;
+    --titulo: "Liberation Sans Banco", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --texto: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; color: var(--tinta); font-family: var(--texto); font-size: 17px; line-height: 1.5;
+    background-color: var(--papel);
+    /* papel cuadriculado de 10 pt, como el de los cuadernillos de operaciones */
+    background-image:
+      linear-gradient(var(--cuadricula) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cuadricula) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 40px 24px 56px; }
+
+  h1 {
+    font-family: var(--titulo); font-weight: 700; color: var(--marino);
+    font-size: clamp(2.3rem, 5.2vw, 3.6rem); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 14px;
+  }
+  .entrada { max-width: 62ch; margin: 0 0 34px; color: var(--suave); font-size: 1.08rem; }
+  .entrada strong { color: var(--tinta); font-weight: 600; }
+
+  /* ---------- bandeja de fichas ---------- */
+  .bandeja { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; margin: 0 0 30px; padding: 0; list-style: none; }
+  .tipo { display: flex; flex-direction: column; align-items: stretch; }
+  .monton { position: relative; height: 210px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 14px; }
+  .monton .folio {
+    position: relative; width: 140px; height: 198px; background: var(--hoja);
+    border: 1px solid #C9D1DC; border-radius: 3px; overflow: hidden; z-index: 5;
+    transition: transform .18s ease;
+  }
+  .monton.horizontal .folio { width: 168px; height: 119px; margin-bottom: 30px; }
+  .monton .folio svg { display: block; width: 100%; height: 100%; }
+  /* hojas de debajo: tantas como fichas (hasta cuatro) */
+  .monton .capa {
+    position: absolute; bottom: 0; width: 140px; height: 198px; background: var(--hoja);
+    border: 1px solid #C9D1DC; border-radius: 3px; opacity: 0; transition: opacity .18s ease, transform .18s ease;
+  }
+  .monton.horizontal .capa { width: 168px; height: 119px; bottom: 30px; }
+  .monton .capa:nth-child(1) { transform: translate(7px, -5px) rotate(2.2deg); z-index: 4; }
+  .monton .capa:nth-child(2) { transform: translate(-6px, -9px) rotate(-1.6deg); z-index: 3; }
+  .monton .capa:nth-child(3) { transform: translate(10px, -13px) rotate(3.4deg); z-index: 2; }
+  .monton .capa:nth-child(4) { transform: translate(-9px, -16px) rotate(-3deg); z-index: 1; }
+  .monton[data-n="1"] .capa:nth-child(-n+1),
+  .monton[data-n="2"] .capa:nth-child(-n+2),
+  .monton[data-n="3"] .capa:nth-child(-n+3),
+  .monton[data-n="4"] .capa:nth-child(-n+4) { opacity: 1; }
+  .monton[data-n="0"] .folio { opacity: .55; }
+  .monton:not([data-n="0"]) .folio { box-shadow: 0 1px 0 rgba(27, 35, 50, .06); }
+
+  .tipo h2 { font-family: var(--titulo); font-weight: 700; font-size: 1.08rem; color: var(--marino); margin: 0 0 2px; text-align: center; }
+  .tipo .que { margin: 0 0 12px; font-size: .9rem; color: var(--suave); text-align: center; min-height: 2.7em; line-height: 1.35; }
+  .cantidad { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; background: var(--hoja); border: 1px solid #C9D1DC; border-radius: 10px; overflow: hidden; }
+  .cantidad button {
+    height: 44px; border: 0; background: transparent; color: var(--marino); font-size: 1.5rem; line-height: 1; cursor: pointer;
+  }
+  .cantidad button:hover { background: #EEF2F7; }
+  .cantidad button:disabled { color: #B7C0CC; cursor: default; background: transparent; }
+  .cantidad input {
+    width: 100%; height: 44px; border: 0; border-left: 1px solid #E3E8EF; border-right: 1px solid #E3E8EF;
+    text-align: center; font: 700 1.35rem var(--titulo); color: var(--tinta); background: transparent; -moz-appearance: textfield;
+  }
+  .cantidad input::-webkit-outer-spin-button, .cantidad input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .tipo.activo .cantidad { border-color: var(--ambar); box-shadow: 0 0 0 1px var(--ambar); }
+
+  /* ---------- acciones ---------- */
+  .acciones {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px;
+    background: var(--hoja); border: 1px solid #C9D1DC; border-radius: 12px; padding: 18px 20px;
+  }
+  .resumen { flex: 1 1 260px; margin: 0; color: var(--suave); }
+  .resumen b { color: var(--tinta); }
+  .casilla { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-weight: 600; }
+  .casilla input { width: 20px; height: 20px; accent-color: var(--turquesa); margin: 0; }
+  .boton {
+    appearance: none; border: 0; border-radius: 10px; padding: 13px 22px; cursor: pointer;
+    background: var(--turquesa); color: #fff; font: 700 1.05rem var(--titulo); letter-spacing: .005em;
+  }
+  .boton:hover { background: var(--turquesa-osc); }
+  .boton:disabled { background: #9DB8B4; cursor: default; }
+  :focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
+
+  /* ---------- progreso y resultados ---------- */
+  .estado { margin-top: 18px; }
+  .barra { height: 8px; background: #E3E8EF; border-radius: 99px; overflow: hidden; margin: 10px 0 6px; }
+  .barra span { display: block; height: 100%; width: 0; background: var(--turquesa); transition: width .25s ease; }
+  .estado .texto { margin: 0; color: var(--suave); }
+  .estado.error .texto { color: var(--error); font-weight: 600; }
+  .descargas { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; }
+  .descargas a {
+    display: inline-flex; flex-direction: column; gap: 2px; padding: 12px 16px; min-width: 210px;
+    background: var(--hoja); border: 1px solid #C9D1DC; border-left: 5px solid var(--marino); border-radius: 8px;
+    color: var(--tinta); text-decoration: none;
+  }
+  .descargas a:hover { border-color: var(--marino); }
+  .descargas a b { font-family: var(--titulo); color: var(--marino); }
+  .descargas a span { font-size: .9rem; color: var(--suave); }
+  .descargas a.sol { border-left-color: var(--turquesa); }
+  .codigos { margin-top: 18px; }
+  .codigos summary { cursor: pointer; font-weight: 600; color: var(--marino); }
+  .codigos table { border-collapse: collapse; margin-top: 10px; font-size: .95rem; background: var(--hoja); }
+  .codigos th, .codigos td { text-align: left; padding: 5px 14px 5px 0; border-bottom: 1px solid #E3E8EF; }
+  .codigos th { color: var(--suave); font-weight: 600; }
+  .codigos td.cod { font-family: var(--titulo); font-weight: 700; }
+
+  /* ---------- notas ---------- */
+  .notas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; margin-top: 40px; }
+  .notas h3 { font-family: var(--titulo); font-size: 1rem; color: var(--marino); margin: 0 0 6px; }
+  .notas p { margin: 0; color: var(--suave); font-size: .95rem; max-width: 46ch; }
+  footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid #D5DCE5; color: var(--suave); font-size: .82rem; }
+  footer p { margin: 0 0 4px; max-width: 110ch; }
+  footer a { color: inherit; }
+
+  @media (max-width: 920px) {
+    .bandeja { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .notas { grid-template-columns: 1fr; gap: 16px; }
+  }
+  @media (max-width: 560px) {
+    main { padding: 26px 16px 40px; }
+    .bandeja { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; }
+    .monton { height: 170px; transform: scale(.82); transform-origin: bottom center; margin-bottom: 4px; }
+    .acciones { padding: 16px; }
+    .boton { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Banco de trabajo</h1>
+  <p class="entrada">Elige cuántas fichas quieres de cada tipo. <strong>Cada ficha es un folio a doble cara</strong>: dos hojas distintas del mismo tipo, cada una con su código. Todas salen nuevas cada vez.</p>
+
+  <ul class="bandeja" id="bandeja" aria-label="Tipos de ficha"></ul>
+
+  <section class="acciones" aria-label="Generar">
+    <p class="resumen" id="resumen">Aún no has elegido ninguna ficha.</p>
+    <label class="casilla"><input type="checkbox" id="soluciones" checked> Solucionario</label>
+    <button class="boton" id="generar" type="button" disabled>Generar fichas</button>
+  </section>
+
+  <section class="estado" id="estado" hidden aria-live="polite">
+    <div class="barra" aria-hidden="true"><span id="barra"></span></div>
+    <p class="texto" id="estado-texto"></p>
+    <ul class="descargas" id="descargas"></ul>
+    <details class="codigos" id="codigos" hidden>
+      <summary>Códigos de este lote</summary>
+      <table><thead><tr><th>Ficha</th><th>Tipo</th><th>Cara A</th><th>Cara B</th></tr></thead><tbody id="tabla-codigos"></tbody></table>
+    </details>
+  </section>
+
+  <section class="notas" aria-label="Notas">
+    <div>
+      <h3>Imprimir</h3>
+      <p>Imprime a doble cara. Los crucigramas van en otro PDF porque son apaisados: en la impresora, elige voltear por el borde corto.</p>
+    </div>
+    <div>
+      <h3>Códigos</h3>
+      <p>Cada hoja lleva un código al azar (por ejemplo, 4821-B o cr-0573). El mismo código está en su página del solucionario.</p>
+    </div>
+    <div>
+      <h3>Variedad</h3>
+      <p>Las sopas usan 50 temas de vocabulario cotidiano y los crucigramas, 600 palabras con pictograma. Este navegador recuerda cuáles han salido para que vayan rotando.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Pictogramas: Sergio Palao. Origen: ARASAAC (<a href="https://arasaac.org">arasaac.org</a>). Licencia: CC BY-NC-SA. Propiedad: Gobierno de Aragón.</p>
+    <p>Letras: Liberation Sans (licencia SIL OFL) y Abecedario de JJMG (licencia GPL 2). Los PDF se crean en este navegador; no se envía nada a ningún servidor.</p>
+  </footer>
+</main>
+
+<script src="js/vendor/pdf-lib.min.js"></script>
+<script src="js/vendor/fontkit.umd.min.js"></script>
+<script src="js/comun.js"></script>
+<script src="js/operaciones.js"></script>
+<script src="js/sopas.js"></script>
+<script src="js/crucigramas-motor.js"></script>
+<script src="js/crucigramas.js"></script>
+<script src="js/documento.js"></script>
+<script src="js/banco.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+@pdf-lib/fontkit 1.1.1 — licencia MIT.
+Copyright (c) 2014 Devon Govett (fontkit) y colaboradores de pdf-lib.
+Texto completo de la licencia MIT: https://opensource.org/licenses/MIT

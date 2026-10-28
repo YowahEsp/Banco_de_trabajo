@@ -15,7 +15,7 @@ Generador de fichas para el banco de trabajo del aula (Educación de Personas Ad
 - **Cada ficha es un folio a doble cara**: dos hojas distintas del mismo tipo, cada una con su código.
 - **Los códigos son al azar** y no se repiten dentro de un lote; el navegador recuerda los últimos usados para no repetirlos entre lotes.
 - **Todo sale nuevo cada vez**: operaciones, cuadrículas de las sopas y crucigramas.
-- **Las sopas no se repiten**: 80 temas con 40 palabras o más cada uno. Las sopas siguen una lista fija de 96 000 puestos y el navegador recuerda por dónde va (la primera vez empieza en un punto al azar). Un tema nunca sale dos veces seguidas y nunca repite el mismo juego de palabras dentro de esos 96 000 puestos; entre dos apariciones del mismo tema cambian casi todas las palabras.
+- **Las sopas no se repiten, aunque se usen ordenadores distintos**: 80 temas con 40 palabras o más cada uno. Qué sopas salen lo decide la hora: cada minuto tiene sus propias sopas, distintas de las de cualquier otro minuto, y cada navegador recuerda además las que ya ha usado para no repetirlas si se piden varios lotes seguidos. Un tema nunca sale dos veces seguidas, nunca repite el mismo juego de palabras (cada tema tiene miles de millones de combinaciones: harían falta miles de años para agotarlas) y dos palabras que se contienen (PIE y PIERNA) nunca van juntas. Solo podrían coincidir dos ordenadores usados con pocos minutos de diferencia, si uno de ellos tiene mal la hora.
 - Se descargan hasta tres PDF: fichas (vertical), crucigramas (apaisado; al imprimir a doble cara, voltear por el borde corto) y solucionario.
 - Los PDF se crean en el propio navegador; no se envía nada a ningún servidor.
 
@@ -26,7 +26,7 @@ Nada está hecho desde cero: cada tipo copia el trabajo ya aprobado. Este reposi
 - **Operaciones**: la «hoja amplia» de [Generador_operaciones](https://github.com/yowahesp/Generador_operaciones) (versión `1f7fd27`), que reproduce los cuadernillos. Aquí se dibuja directamente en PDF vectorial (con [pdf-lib](https://pdf-lib.js.org)), así que imprimir y descargar dan lo mismo. Comparada píxel a píxel con los cuadernillos originales.
 - **Sopas de letras**: las reglas y la maqueta del cuaderno «Sopas de letras: 50 fichas de vocabulario cotidiano» (octubre de 2026): el mismo número de palabras en cada dirección (→ ↓ ↘ ↗; cuatro en la normal, seis en la ampliada), ninguna al revés, cada palabra aparece una sola vez y el relleno no forma palabras malsonantes. Las cuadrículas son nuevas cada vez.
   - Los 50 temas del cuaderno se han ampliado a 40 palabras o más y se han añadido 31 temas nuevos (80 en total; «Los meses» y «Los días de la semana» se juntan en «El calendario»).
-  - Dos palabras que se contienen (PIE y PIERNA, METRO y KILÓMETRO) nunca van en la misma sopa.
+  - Dos palabras que se contienen (PIE y PIERNA, METRO y KILÓMETRO) nunca van en la misma sopa: se agrupan y de cada grupo sale como mucho una.
   - La ampliada usa casillas de 8,5 mm y letra de 14,8 pt; en el solucionario, todas las cuadrículas miden 81 mm.
 - **Crucigramas**: el generador de cruzadas con pictogramas del proyecto de [fichas de alfabetización](https://github.com/yowahesp/fichas-alfabetizacion) (`herramientas/crucigramas`), traducido a JavaScript para que funcione en el navegador, con las mismas reglas del formato aprobado (cr-01…cr-25):
   - 18 palabras; ninguna pareja que se confunda en el mismo crucigrama.
@@ -79,9 +79,9 @@ herramientas/               lista de palabras, preparación de pictogramas y com
    ```bash
    cd herramientas
    python3 construir_sopas.py        # necesita pyspellchecker y Node
-   node comprobar_secuencia.js       # comprueba los 96 000 puestos (tarda un minuto)
+   node comprobar_secuencia.js       # comprueba la secuencia (tarda unos 4 minutos)
    ```
-   `construir_sopas.py` no escribe nada si hay errores o palabras que no están en el diccionario: las correctas se añaden a `ACEPTADAS`. Después llama a `construir_secuencia.js`, que elige de antemano cómo se barajan las palabras de cada tema en cada vuelta (campo `v`) para que ningún juego de palabras se repita. Cambiar las palabras de un tema cambia también la secuencia de ese tema.
+   `construir_sopas.py` no escribe nada si hay errores o palabras que no están en el diccionario: las correctas se añaden a `ACEPTADAS`. Cambiar las palabras de un tema cambia también qué juegos de palabras salen de ese tema (y podrían volver a salir juegos ya usados con la lista anterior).
 
 **Comprobar un lote descargado**
 

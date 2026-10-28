@@ -8,9 +8,9 @@
    nueva.
    Dos tamaños: normal (15 × 15, 16 palabras, como el cuaderno) y ampliada
    (18 × 18, 24 palabras).
-   Temas y palabras salen de una secuencia fija (ver «Secuencia»): 80 temas
-   de 40 palabras o más; un tema no vuelve a salir con las mismas palabras
-   hasta pasadas 96 000 sopas.
+   Temas y palabras salen de una secuencia que marca el reloj (ver
+   «Secuencia»): 80 temas de 40 palabras o más; ningún tema repite juego de
+   palabras, aunque se generen fichas en ordenadores distintos.
    ===================================================================== */
 (function (global) {
   'use strict';
@@ -317,24 +317,25 @@
   }
 
   /* ---------- Secuencia de temas y palabras ----------
-     Las sopas siguen una lista fija y numerada de NUM_SOPAS puestos; el navegador guarda por
-     dónde va (CLAVE_INDICE) y empieza en un punto al azar la primera vez.
+     Cada sopa ocupa un puesto n de una lista sin fin. El puesto lo marca el reloj: cada minuto
+     desde EPOCA tiene POR_MINUTO puestos propios, así que distintos ordenadores no comparten
+     puestos aunque cada uno lleve su propia cuenta. Cada navegador recuerda además el último
+     puesto que usó y nunca vuelve atrás (si en un minuto se piden más sopas, sigue con los
+     puestos siguientes).
      · Puesto n: bloque b = n div T (T = número de temas). Cada bloque recorre todos los temas
-       en un orden barajado propio, así que un tema sale una vez por bloque y nunca dos
-       seguidos (si un bloque empezara con el tema con que acaba el anterior, se cambian los
-       dos primeros).
-     · La aparición b de un tema con P palabras usa la vuelta v = b div P de una baraja fija de
-       sus palabras y empieza en la posición (b mod P) · paso mod P (paso: el primer número
-       ≥ 16 sin divisores comunes con P; la baraja de cada vuelta está elegida de antemano para
-       que no repita ningún juego de palabras anterior y comparta pocas con el final de la
-       vuelta anterior: ver elegirVueltas).
-       Desde ahí toma 16 o 24 palabras seguidas, saltando las
-       que se contienen en otra ya tomada (PIE / PIERNA). Así, entre una aparición y la
-       siguiente cambian casi todas las palabras, y ningún tema repite el mismo juego de
-       palabras en sus 1200 apariciones (comprobado con herramientas/comprobar_secuencia.js).
-     Resultado: dentro de NUM_SOPAS = 96 000 puestos seguidos no hay dos sopas con el mismo
-     tema y las mismas palabras (y además cada cuadrícula se rellena al azar). */
-  const VUELTAS = 1200, CLAVE_INDICE = 'banco-trabajo-sopas-indice';
+       en un orden barajado propio: un tema sale una vez por bloque y nunca dos veces seguidas.
+     · Las palabras de la aparición b de un tema salen de b con una correspondencia uno a uno
+       (dos apariciones distintas nunca dan el mismo juego de palabras):
+         1. las palabras que se contienen (PIE / PIERNA) se agrupan; de cada grupo se toma
+            como mucho una, así que nunca van juntas;
+         2. r = (A·b + C) mod M, con M = número de maneras de escoger k grupos de los m del
+            tema (k = 16 o 24) y A sin divisores comunes con M: r recorre sin repetir todas
+            las combinaciones, salteadas;
+         3. r se traduce en los k grupos (sistema combinatorio de numeración) y en cada grupo
+            se toma una de sus palabras.
+       M vale al menos C(37, 16) ≈ 12 000 millones: a razón de un puesto por minuto y tema
+       harían falta miles de años para repetir. */
+  const EPOCA = Date.UTC(2026, 0, 1), POR_MINUTO = 64, CLAVE_INDICE = 'banco-trabajo-sopas-puesto';
 
   function sembrar(texto) {                 /* FNV-1a de 32 bits */
     let h = 0x811c9dc5;
@@ -348,127 +349,89 @@
     const rx = [...x].reverse().join(''), ry = [...y].reverse().join('');
     return x !== y && (y.includes(x) || y.includes(rx) || x.includes(y) || x.includes(ry));
   }
-  function mcd(a, b) { while (b) [a, b] = [b, a % b]; return a; }
 
   function ordenBloque(T, b) {
     const baraja = o => B.barajar(B.crearAzar(sembrar('orden|' + o)), Array.from({ length: T }, (_, i) => i));
     const orden = baraja(b);
-    const anterior = baraja((b + VUELTAS - 1) % VUELTAS);   /* el bloque 0 sigue al último */
-    if (orden[0] === anterior[T - 1]) [orden[0], orden[1]] = [orden[1], orden[0]];
+    if (b > 0 && orden[0] === baraja(b - 1)[T - 1]) [orden[0], orden[1]] = [orden[1], orden[0]];
     return orden;
   }
 
-  /* Para cada palabra de un tema, las que la contienen o están contenidas en ella */
-  const choques = new Map();
-  function choquesDe(tema) {
-    if (!choques.has(tema.t)) {
-      const m = new Map(tema.p.map(w => [w, new Set()]));
-      tema.p.forEach((a, i) => tema.p.slice(i + 1).forEach(b => { if (seContienen(a, b)) { m.get(a).add(b); m.get(b).add(a); } }));
-      choques.set(tema.t, m);
+  /* Números grandes (BigInt) */
+  const binomios = [];
+  function binomio(n, k) {
+    if (k < 0 || k > n) return 0n;
+    while (binomios.length <= n) {
+      const f = binomios.length, fila = [1n];
+      for (let i = 1; i <= f; i++) fila.push(i === f ? 1n : binomios[f - 1][i - 1] + binomios[f - 1][i]);
+      binomios.push(fila);
     }
-    return choques.get(tema.t);
+    return binomios[n][k];
   }
-  /* k palabras seguidas de la baraja desde «inicio», saltando las que chocan con una ya tomada */
-  function tomar(baraja, inicio, k, choq) {
-    const P = baraja.length, elegidas = [];
-    for (let i = 0; i < P && elegidas.length < k; i++) {
-      const w = baraja[(inicio + i) % P], c = choq.get(w);
-      if (!c.size || !elegidas.some(e => c.has(e))) elegidas.push(w);
-    }
-    return elegidas;
-  }
-  function pasoDe(P) { let paso = 16; while (mcd(paso, P) !== 1) paso++; return paso; }
-
-  /* Candidata j para la vuelta w de un tema (siempre la misma: no depende del azar del
-     navegador). La vuelta 0 es una baraja cualquiera; las siguientes empiezan casi todas con
-     palabras que no salieron en la última aparición de la vuelta anterior. */
-  function candidata(tema, w, j, previa) {
-    const azar = B.crearAzar(sembrar(tema.t + '|' + w + '|' + j));
-    if (w === 0) return B.barajar(azar, tema.p.slice());
-    const P = tema.p.length, fin = ((P - 1) * pasoDe(P)) % P;
-    const antes = new Set(tomar(previa, fin, 24, choquesDe(tema)));
-    const nuevas = B.barajar(azar, tema.p.filter(x => !antes.has(x)));
-    const viejas = B.barajar(azar, tema.p.filter(x => antes.has(x)));
-    for (let q = 0; q < 3 && q < nuevas.length; q++) {        /* 3 cambiadas de sitio */
-      const a = Math.floor(azar() * nuevas.length), b = Math.floor(azar() * viejas.length);
-      [nuevas[a], viejas[b]] = [viejas[b], nuevas[a]];
-    }
-    return B.barajar(azar, nuevas).concat(viejas);
+  function mcdG(a, b) { while (b) [a, b] = [b, a % b]; return a; }
+  function grande(texto, M) {               /* número de 64 bits a partir de un texto, módulo M */
+    return ((BigInt(sembrar(texto + '|a')) << 32n) | BigInt(sembrar(texto + '|b'))) % M;
   }
 
-  /* Baraja de la vuelta v de un tema. Cada tema lleva en datos/sopas.json («v») qué candidata
-     usa cada vuelta; la eligió herramientas/construir_secuencia.js con elegirVueltas(). */
-  const barajas = new Map();
-  function barajaVuelta(tema, v) {
-    if (!barajas.has(tema.t)) barajas.set(tema.t, []);
-    const lista = barajas.get(tema.t);
-    while (lista.length <= v) {
-      const w = lista.length;
-      lista.push(candidata(tema, w, (tema.v && tema.v[w]) || 0, lista[w - 1]));
+  /* Grupos de un tema: palabras unidas si se contienen (en cadena); orden fijo barajado */
+  const preparados = new Map();
+  function preparar(tema, k) {
+    const clave = tema.t + '|' + k;
+    if (preparados.has(clave)) return preparados.get(clave);
+    const padre = tema.p.map((_, i) => i);
+    const raiz = i => (padre[i] === i ? i : (padre[i] = raiz(padre[i])));
+    tema.p.forEach((a, i) => tema.p.forEach((b, j) => { if (j > i && seContienen(a, b)) padre[raiz(j)] = raiz(i); }));
+    const mapa = new Map();
+    tema.p.forEach((w, i) => { const r = raiz(i); if (!mapa.has(r)) mapa.set(r, []); mapa.get(r).push(w); });
+    const grupos = B.barajar(B.crearAzar(sembrar('grupos|' + tema.t)), [...mapa.values()]);
+    const m = grupos.length;
+    if (m < k) throw new Error('El tema «' + tema.t + '» no tiene ' + k + ' palabras compatibles');
+    const M = binomio(m, k);
+    let A = M / 3n + grande(tema.t + '|A' + k, M / 3n);  /* entre M/3 y 2M/3, sin divisores comunes con M */
+    while (mcdG(A, M) !== 1n) A++;
+    const res = { grupos, m, M, A, C: grande(tema.t + '|C' + k, M) };
+    preparados.set(clave, res);
+    return res;
+  }
+
+  /* Juego de palabras de la aparición b (0, 1, 2…) de un tema, con k palabras */
+  function palabrasDe(tema, b, k) {
+    const { grupos, m, M, A, C } = preparar(tema, k);
+    let r = (A * BigInt(b) + C) % M;
+    /* sistema combinatorio de numeración: r → k grupos distintos */
+    const elegidos = [];
+    let n = m;
+    for (let q = k; q >= 1; q--) {
+      n--; while (binomio(n, q) > r) n--;
+      elegidos.push(n); r -= binomio(n, q);
     }
-    return lista[v];
+    const azar = B.crearAzar(sembrar(tema.t + '|' + b + '|' + k));
+    return elegidos.map(g => grupos[g][Math.floor(azar() * grupos[g].length)]);
   }
 
-  /* Solo para la herramienta: elige la candidata de cada vuelta. Descarta las que repetirían
-     un juego de palabras ya salido (en una vuelta anterior o en la misma, en tamaño normal o
-     ampliado) y, de las válidas, se queda con la que menos comparte con el final de la vuelta
-     anterior. */
-  function elegirVueltas(tema, intentos) {
-    const P = tema.p.length, paso = pasoDe(P), choq = choquesDe(tema), usados = new Set();
-    const vueltas = Math.ceil(VUELTAS / P), elegidas = [], barajasT = [];
-    const clave = ws => ws.slice().sort().join(',');
-    const juegos = baraja => {
-      const claves = [];
-      for (const k of [16, 24]) for (let ini = 0; ini < P; ini++) claves.push(k + ':' + clave(tomar(baraja, ini, k, choq)));
-      return new Set(claves).size === claves.length && !claves.some(c => usados.has(c)) ? claves : null;
-    };
-    for (let w = 0; w < vueltas; w++) {
-      const previa = barajasT[w - 1];
-      const antes = w ? [16, 24].map(k => new Set(tomar(previa, ((P - 1) * paso) % P, k, choq))) : null;
-      let mejor = null;
-      for (let j = 0; j < (intentos || 40); j++) {
-        const c = candidata(tema, w, j, previa);
-        const nota = w ? [16, 24].reduce((t, k, i) => t + tomar(c, 0, k, choq).filter(x => antes[i].has(x)).length, 0) : 0;
-        if (mejor && nota >= mejor.nota) continue;
-        const claves = juegos(c);
-        if (claves) mejor = { j, c, claves, nota };
-        if (!w && mejor) break;
-      }
-      if (!mejor) throw new Error('El tema «' + tema.t + '» no tiene palabras suficientes para la vuelta ' + w);
-      mejor.claves.forEach(c => usados.add(c));
-      elegidas.push(mejor.j); barajasT.push(mejor.c);
-    }
-    return elegidas;
-  }
-
-  function palabrasDe(tema, aparicion, k) {
-    const P = tema.p.length, paso = pasoDe(P);
-    const vuelta = Math.floor(aparicion / P), inicio = ((aparicion % P) * paso) % P;
-    const elegidas = tomar(barajaVuelta(tema, vuelta), inicio, k, choquesDe(tema));
-    if (elegidas.length < k) throw new Error('El tema «' + tema.t + '» no tiene ' + k + ' palabras compatibles');
-    return elegidas;
-  }
-
-  /* Tema y palabras del puesto n de la secuencia */
+  /* Tema y palabras del puesto n */
   function puesto(temas, n, formato) {
-    const T = temas.length, total = T * VUELTAS;
-    n = ((n % total) + total) % total;
-    const b = Math.floor(n / T), tema = temas[ordenBloque(T, b)[n % T]];
+    const T = temas.length, b = Math.floor(n / T), tema = temas[ordenBloque(T, b)[n % T]];
     return { t: tema.t, p: palabrasDe(tema, b, 4 * FORMATOS[formato || 'normal'].porDir), puesto: n };
   }
 
-  /* Los siguientes «cuantos» puestos para este navegador (y avanza el contador) */
-  function siguientes(temas, cuantos, formato, azar) {
-    const total = temas.length * VUELTAS;
-    let n = null;
-    try { const v = localStorage.getItem(CLAVE_INDICE); if (v !== null && /^\d+$/.test(v)) n = Number(v) % total; } catch (e) { /* sin almacenamiento */ }
-    if (n === null) n = Math.floor(azar() * total);
+  /* Los siguientes «cuantos» puestos: los del minuto actual o, si este navegador ya va más
+     adelantado, los que siguen al último que usó */
+  let ultimoEnMemoria = 0;
+  function siguientes(temas, cuantos, formato, ahora) {
+    const reloj = Math.max(0, Math.floor(((ahora === undefined ? Date.now() : ahora) - EPOCA) / 60000)) * POR_MINUTO;
+    let guardado = 0;
+    try { const v = localStorage.getItem(CLAVE_INDICE); if (v !== null && /^\d+$/.test(v)) guardado = Number(v); } catch (e) { /* sin almacenamiento */ }
+    const n = Math.max(reloj, guardado, ultimoEnMemoria);
     const lista = Array.from({ length: cuantos }, (_, i) => puesto(temas, n + i, formato));
-    return { lista, confirmar() { try { localStorage.setItem(CLAVE_INDICE, String((n + cuantos) % total)); } catch (e) { /* sin almacenamiento */ } } };
+    return { lista, desde: n, confirmar() {
+      ultimoEnMemoria = n + cuantos;
+      try { localStorage.setItem(CLAVE_INDICE, String(n + cuantos)); } catch (e) { /* sin almacenamiento */ }
+    } };
   }
 
   B.sopas = {
-    FORMATOS, VUELTAS, generar, comprobar, ordenar, puesto, siguientes, palabrasDe, ordenBloque, seContienen, elegirVueltas,
+    FORMATOS, EPOCA, POR_MINUTO, generar, comprobar, ordenar, puesto, siguientes, palabrasDe, preparar, ordenBloque, seContienen,
     formatoCodigo() { return n => n + '-S'; },
     dibujarFicha, dibujarSoluciones
   };

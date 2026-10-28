@@ -50,7 +50,7 @@
       aviso('Preparando las sopas de letras…', 0.05);
       const temas = await B.json('datos/sopas.json');
       const formato = pedido.tamSopa === 'ampliada' ? 'ampliada' : 'normal';
-      secuencia = B.sopas.siguientes(temas, 2 * pedido.S, formato, azar);
+      secuencia = B.sopas.siguientes(temas, 2 * pedido.S, formato);
       for (let i = 0; i < pedido.S; i++) {
         const caras = [];
         for (const tema of secuencia.lista.slice(2 * i, 2 * i + 2)) {

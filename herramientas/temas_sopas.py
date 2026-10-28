@@ -297,11 +297,11 @@ TEMAS = [
  generador turbina dinamo central presa embalse molino viento sol placa carbón petróleo gasolina butano
  leña combustible calor vatio voltio contador factura consumo ahorro potencia fuerza hidrógeno nuclear
  radiador estufa"""),
-("Pesos y medidas", """metro kilómetro centímetro milímetro decímetro hectómetro decámetro litro mililitro
- centilitro decilitro gramo kilogramo miligramo tonelada longitud masa capacidad superficie volumen área
- hectárea peso medida unidad mitad cuarto doble regla báscula balanza termómetro grado temperatura reloj
- hora minuto segundo cinta pesa libra onza pulgada palmo milla arroba quintal yarda legua docena probeta"""),
-("Geometría", """punto recta línea segmento ángulo vértice lado triángulo cuadrado rectángulo rombo trapecio
+("Pesos y medidas", """metro kilómetro centímetro litro mililitro gramo kilogramo tonelada longitud masa capacidad
+ superficie volumen área peso medida unidad mitad cuarto doble regla báscula balanza grado
+ temperatura reloj hora minuto segundo cinta pesa libra onza pulgada palmo milla arroba quintal yarda
+ legua docena probeta medir calcular cantidad nivel jarra cuentagotas exacto cucharada vaso"""),
+("Geometría", """punto línea segmento ángulo vértice lado triángulo cuadrado rectángulo rombo trapecio
  pentágono hexágono octógono polígono círculo circunferencia radio diámetro arco cuerda centro perímetro
  área cubo prisma pirámide cilindro cono esfera cara arista base altura paralela perpendicular diagonal
  eje simetría compás escuadra cartabón transportador cuadrilátero volumen"""),

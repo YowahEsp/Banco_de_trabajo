@@ -7,8 +7,7 @@ Comprobaciones de cada tema:
   · ortografía con tilde según el diccionario español de pyspellchecker (las que no figuran se
     listan para revisarlas a mano; no se aceptan si no están en ACEPTADAS);
   · parejas que se contienen (PIE dentro de PIERNA, o al revés): no impiden la palabra, pero el
-    generador no las pone juntas en la misma sopa; se comprueba que siempre quedan 24 palabras
-    compatibles.
+    generador las agrupa y toma como mucho una de cada grupo; hacen falta 24 grupos o más.
 """
 import json, os, sys, unicodedata
 from temas_sopas import TEMAS
@@ -102,13 +101,16 @@ def main():
             if usar_dic and w.lower() not in dic and w.lower() not in ACEPTADAS:
                 revisar.append(f'{titulo}: {w}')
         pares = [(a, b) for i, a in enumerate(ws) for b in ws[i+1:] if conflicto(a, b)]
-        # ¿quedan siempre MAX_SOPA palabras compatibles? (cota: quitar una de cada pareja)
-        quitadas = set()
-        for a, b in pares:
-            if a not in quitadas and b not in quitadas:
-                quitadas.add(b if len(b) > len(a) else a)
-        if len(ws) - len(quitadas) < MAX_SOPA:
-            errores.append(f'{titulo}: solo {len(ws) - len(quitadas)} palabras compatibles')
+        # el generador agrupa las palabras que se contienen (en cadena) y toma como mucho una
+        # de cada grupo: hacen falta al menos MAX_SOPA grupos
+        padre = {w: w for w in ws}
+        def raiz(w):
+            while padre[w] != w: w = padre[w]
+            return w
+        for a, b in pares: padre[raiz(b)] = raiz(a)
+        grupos = len({raiz(w) for w in ws})
+        if grupos < MAX_SOPA:
+            errores.append(f'{titulo}: solo {grupos} grupos de palabras compatibles')
         if pares:
             print(f'  {titulo}: parejas que no irán juntas: ' + ', '.join(f'{a}/{b}' for a, b in pares))
         salida.append({'t': titulo, 'p': ws})
@@ -121,11 +123,8 @@ def main():
     if revisar:
         sys.exit('Hay palabras sin revisar: no se escribe el archivo.')
     with open(os.path.join(RAIZ, 'datos', 'sopas.json'), 'w', encoding='utf-8') as f:
-        json.dump(salida, f, ensure_ascii=False, indent=0)
+        f.write('[\n' + ',\n'.join(json.dumps(t, ensure_ascii=False) for t in salida) + '\n]\n')
     print('datos/sopas.json escrito')
-    # qué baraja usa cada vuelta de la secuencia (para que ningún tema repita palabras)
-    import subprocess
-    subprocess.run(['node', os.path.join(RAIZ, 'herramientas', 'construir_secuencia.js')], check=True)
 
 
 if __name__ == '__main__':

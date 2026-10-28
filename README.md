@@ -53,7 +53,7 @@ js/crucigramas.js           reparto de palabras, trabajo en paralelo y dibujo
 js/documento.js             montaje de los PDF de un lote
 js/banco.js                 interfaz
 js/vendor/                  pdf-lib 1.17.1 y @pdf-lib/fontkit 1.1.1 (MIT)
-datos/sopas.json            80 temas de 40 palabras o más (se crea con herramientas/construir_sopas.py)
+datos/sopas.json            80 temas de 40 palabras o más y su secuencia (herramientas/construir_sopas.py)
 datos/crucigramas.json      600 palabras, proporción de cada dibujo y parejas que se confunden
 pictos/                     600 pictogramas de ARASAAC en blanco y negro
 fuentes/                    Liberation Sans Bold (OFL) y Abecedario (GPL 2)
@@ -78,10 +78,10 @@ herramientas/               lista de palabras, preparación de pictogramas y com
 2. Comprueba y crea el archivo de datos:
    ```bash
    cd herramientas
-   python3 construir_sopas.py        # necesita pyspellchecker
-   node comprobar_secuencia.js       # comprueba los 96 000 puestos (tarda unos 3 minutos)
+   python3 construir_sopas.py        # necesita pyspellchecker y Node
+   node comprobar_secuencia.js       # comprueba los 96 000 puestos (tarda un minuto)
    ```
-   `construir_sopas.py` no escribe nada si hay errores o palabras que no están en el diccionario: las correctas se añaden a `ACEPTADAS`. Cambiar las palabras de un tema cambia también la secuencia de ese tema.
+   `construir_sopas.py` no escribe nada si hay errores o palabras que no están en el diccionario: las correctas se añaden a `ACEPTADAS`. Después llama a `construir_secuencia.js`, que elige de antemano cómo se barajan las palabras de cada tema en cada vuelta (campo `v`) para que ningún juego de palabras se repita. Cambiar las palabras de un tema cambia también la secuencia de ese tema.
 
 **Comprobar un lote descargado**
 

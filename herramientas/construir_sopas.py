@@ -123,6 +123,9 @@ def main():
     with open(os.path.join(RAIZ, 'datos', 'sopas.json'), 'w', encoding='utf-8') as f:
         json.dump(salida, f, ensure_ascii=False, indent=0)
     print('datos/sopas.json escrito')
+    # qué baraja usa cada vuelta de la secuencia (para que ningún tema repita palabras)
+    import subprocess
+    subprocess.run(['node', os.path.join(RAIZ, 'herramientas', 'construir_secuencia.js')], check=True)
 
 
 if __name__ == '__main__':

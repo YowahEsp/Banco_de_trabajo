@@ -325,8 +325,10 @@
        dos primeros).
      · La aparición b de un tema con P palabras usa la vuelta v = b div P de una baraja fija de
        sus palabras y empieza en la posición (b mod P) · paso mod P (paso: el primer número
-       ≥ 16 sin divisores comunes con P; la baraja de cada vuelta se elige para que comparta
-       pocas palabras con el final de la anterior). Desde ahí toma 16 o 24 palabras seguidas, saltando las
+       ≥ 16 sin divisores comunes con P; la baraja de cada vuelta está elegida de antemano para
+       que no repita ningún juego de palabras anterior y comparta pocas con el final de la
+       vuelta anterior: ver elegirVueltas).
+       Desde ahí toma 16 o 24 palabras seguidas, saltando las
        que se contienen en otra ya tomada (PIE / PIERNA). Así, entre una aparición y la
        siguiente cambian casi todas las palabras, y ningún tema repite el mismo juego de
        palabras en sus 1200 apariciones (comprobado con herramientas/comprobar_secuencia.js).
@@ -339,8 +341,10 @@
     for (const ch of texto) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
     return h >>> 0;
   }
+  const normas = new Map();
+  function norma(w) { let n = normas.get(w); if (n === undefined) { n = B.normalizar(w); normas.set(w, n); } return n; }
   function seContienen(a, b) {
-    const x = B.normalizar(a), y = B.normalizar(b);
+    const x = norma(a), y = norma(b);
     const rx = [...x].reverse().join(''), ry = [...y].reverse().join('');
     return x !== y && (y.includes(x) || y.includes(rx) || x.includes(y) || x.includes(ry));
   }
@@ -354,50 +358,93 @@
     return orden;
   }
 
-  function tomar(baraja, inicio, k) {
+  /* Para cada palabra de un tema, las que la contienen o están contenidas en ella */
+  const choques = new Map();
+  function choquesDe(tema) {
+    if (!choques.has(tema.t)) {
+      const m = new Map(tema.p.map(w => [w, new Set()]));
+      tema.p.forEach((a, i) => tema.p.slice(i + 1).forEach(b => { if (seContienen(a, b)) { m.get(a).add(b); m.get(b).add(a); } }));
+      choques.set(tema.t, m);
+    }
+    return choques.get(tema.t);
+  }
+  /* k palabras seguidas de la baraja desde «inicio», saltando las que chocan con una ya tomada */
+  function tomar(baraja, inicio, k, choq) {
     const P = baraja.length, elegidas = [];
     for (let i = 0; i < P && elegidas.length < k; i++) {
-      const w = baraja[(inicio + i) % P];
-      if (!elegidas.some(e => seContienen(e, w))) elegidas.push(w);
+      const w = baraja[(inicio + i) % P], c = choq.get(w);
+      if (!c.size || !elegidas.some(e => c.has(e))) elegidas.push(w);
     }
     return elegidas;
   }
   function pasoDe(P) { let paso = 16; while (mcd(paso, P) !== 1) paso++; return paso; }
 
-  /* Baraja de la vuelta v de un tema. Para que al cambiar de vuelta tampoco se repitan muchas
-     palabras, la nueva baraja empieza por las que no salieron en la última aparición de la
-     vuelta anterior; de 20 candidatas se queda con la que menos comparte con ella (siempre la
-     misma elección: no depende del azar del navegador). */
+  /* Candidata j para la vuelta w de un tema (siempre la misma: no depende del azar del
+     navegador). La vuelta 0 es una baraja cualquiera; las siguientes empiezan casi todas con
+     palabras que no salieron en la última aparición de la vuelta anterior. */
+  function candidata(tema, w, j, previa) {
+    const azar = B.crearAzar(sembrar(tema.t + '|' + w + '|' + j));
+    if (w === 0) return B.barajar(azar, tema.p.slice());
+    const P = tema.p.length, fin = ((P - 1) * pasoDe(P)) % P;
+    const antes = new Set(tomar(previa, fin, 24, choquesDe(tema)));
+    const nuevas = B.barajar(azar, tema.p.filter(x => !antes.has(x)));
+    const viejas = B.barajar(azar, tema.p.filter(x => antes.has(x)));
+    for (let q = 0; q < 3 && q < nuevas.length; q++) {        /* 3 cambiadas de sitio */
+      const a = Math.floor(azar() * nuevas.length), b = Math.floor(azar() * viejas.length);
+      [nuevas[a], viejas[b]] = [viejas[b], nuevas[a]];
+    }
+    return B.barajar(azar, nuevas).concat(viejas);
+  }
+
+  /* Baraja de la vuelta v de un tema. Cada tema lleva en datos/sopas.json («v») qué candidata
+     usa cada vuelta; la eligió herramientas/construir_secuencia.js con elegirVueltas(). */
   const barajas = new Map();
   function barajaVuelta(tema, v) {
     if (!barajas.has(tema.t)) barajas.set(tema.t, []);
     const lista = barajas.get(tema.t);
-    const P = tema.p.length, paso = pasoDe(P);
     while (lista.length <= v) {
       const w = lista.length;
-      if (w === 0) { lista.push(B.barajar(B.crearAzar(sembrar(tema.t + '|0|0')), tema.p.slice())); continue; }
-      const ultima = lista[w - 1], fin = ((P - 1) * paso) % P;
-      const antes = [16, 24].map(k => new Set(tomar(ultima, fin, k)));
-      /* delante, barajadas, las palabras que no salieron en esa última aparición; detrás, el resto */
-      const candidata = j => {
-        const azar = B.crearAzar(sembrar(tema.t + '|' + w + '|' + j));
-        return B.barajar(azar, tema.p.filter(x => !antes[1].has(x))).concat(B.barajar(azar, tema.p.filter(x => antes[1].has(x))));
-      };
-      let mejor = null, nota = Infinity;
-      for (let j = 0; j < 20; j++) {
-        const c = candidata(j);
-        const n = [16, 24].reduce((tot, k, i) => tot + tomar(c, 0, k).filter(x => antes[i].has(x)).length, 0);
-        if (n < nota) { nota = n; mejor = c; }
-      }
-      lista.push(mejor);
+      lista.push(candidata(tema, w, (tema.v && tema.v[w]) || 0, lista[w - 1]));
     }
     return lista[v];
+  }
+
+  /* Solo para la herramienta: elige la candidata de cada vuelta. Descarta las que repetirían
+     un juego de palabras ya salido (en una vuelta anterior o en la misma, en tamaño normal o
+     ampliado) y, de las válidas, se queda con la que menos comparte con el final de la vuelta
+     anterior. */
+  function elegirVueltas(tema, intentos) {
+    const P = tema.p.length, paso = pasoDe(P), choq = choquesDe(tema), usados = new Set();
+    const vueltas = Math.ceil(VUELTAS / P), elegidas = [], barajasT = [];
+    const clave = ws => ws.slice().sort().join(',');
+    const juegos = baraja => {
+      const claves = [];
+      for (const k of [16, 24]) for (let ini = 0; ini < P; ini++) claves.push(k + ':' + clave(tomar(baraja, ini, k, choq)));
+      return new Set(claves).size === claves.length && !claves.some(c => usados.has(c)) ? claves : null;
+    };
+    for (let w = 0; w < vueltas; w++) {
+      const previa = barajasT[w - 1];
+      const antes = w ? [16, 24].map(k => new Set(tomar(previa, ((P - 1) * paso) % P, k, choq))) : null;
+      let mejor = null;
+      for (let j = 0; j < (intentos || 40); j++) {
+        const c = candidata(tema, w, j, previa);
+        const nota = w ? [16, 24].reduce((t, k, i) => t + tomar(c, 0, k, choq).filter(x => antes[i].has(x)).length, 0) : 0;
+        if (mejor && nota >= mejor.nota) continue;
+        const claves = juegos(c);
+        if (claves) mejor = { j, c, claves, nota };
+        if (!w && mejor) break;
+      }
+      if (!mejor) throw new Error('El tema «' + tema.t + '» no tiene palabras suficientes para la vuelta ' + w);
+      mejor.claves.forEach(c => usados.add(c));
+      elegidas.push(mejor.j); barajasT.push(mejor.c);
+    }
+    return elegidas;
   }
 
   function palabrasDe(tema, aparicion, k) {
     const P = tema.p.length, paso = pasoDe(P);
     const vuelta = Math.floor(aparicion / P), inicio = ((aparicion % P) * paso) % P;
-    const elegidas = tomar(barajaVuelta(tema, vuelta), inicio, k);
+    const elegidas = tomar(barajaVuelta(tema, vuelta), inicio, k, choquesDe(tema));
     if (elegidas.length < k) throw new Error('El tema «' + tema.t + '» no tiene ' + k + ' palabras compatibles');
     return elegidas;
   }
@@ -421,7 +468,7 @@
   }
 
   B.sopas = {
-    FORMATOS, VUELTAS, generar, comprobar, ordenar, puesto, siguientes, palabrasDe, ordenBloque, seContienen,
+    FORMATOS, VUELTAS, generar, comprobar, ordenar, puesto, siguientes, palabrasDe, ordenBloque, seContienen, elegirVueltas,
     formatoCodigo() { return n => n + '-S'; },
     dibujarFicha, dibujarSoluciones
   };

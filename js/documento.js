@@ -17,7 +17,6 @@
     { id: 'S', nombre: 'Sopa de letras', familia: 'sopa' },
     { id: 'C', nombre: 'Crucigrama', familia: 'cruci' }
   ];
-  const CLAVE_SOPAS = 'banco-trabajo-uso-sopas';
 
   async function nuevoDoc(titulo, fuentes) {
     const doc = await PDFDocument.create();
@@ -30,24 +29,7 @@
     return { doc, f, cache: new Map() };
   }
 
-  /* Temas de sopas: no se repiten en el lote hasta agotar los 50 y, entre lotes,
-     van primero los que menos han salido en este navegador. */
-  function elegirTemas(temas, n, azar) {
-    let uso = {};
-    try { uso = JSON.parse(localStorage.getItem(CLAVE_SOPAS) || '{}'); } catch (e) { uso = {}; }
-    const elegidos = [];
-    while (elegidos.length < n) {
-      const desempate = new Map(temas.map(t => [t.t, azar()]));
-      const orden = temas.slice().sort((a, b) => (uso[a.t] || 0) - (uso[b.t] || 0) || desempate.get(a.t) - desempate.get(b.t));
-      for (const t of orden.slice(0, Math.min(n - elegidos.length, temas.length))) {
-        elegidos.push(t); uso[t.t] = (uso[t.t] || 0) + 1;
-      }
-    }
-    try { localStorage.setItem(CLAVE_SOPAS, JSON.stringify(uso)); } catch (e) { /* sin almacenamiento */ }
-    return elegidos;
-  }
-
-  /* pedido: { B: n, R: n, M: n, S: n, C: n, soluciones: bool }
+  /* pedido: { B: n, R: n, M: n, S: n, C: n, soluciones: bool, tamSopa: 'normal' | 'ampliada' }
      avisar(texto, fraccion) informa del avance. Devuelve [{ nombre, blob, paginas }]. */
   async function generar(pedido, avisar, semilla) {
     const azar = B.crearAzar(semilla);
@@ -63,14 +45,16 @@
         fichas.push({ tipo: t.id, caras });
       }
     }
+    let secuencia = null;
     if (pedido.S) {
       aviso('Preparando las sopas de letras…', 0.05);
       const temas = await B.json('datos/sopas.json');
-      const elegidos = elegirTemas(temas, 2 * pedido.S, azar);
+      const formato = pedido.tamSopa === 'ampliada' ? 'ampliada' : 'normal';
+      secuencia = B.sopas.siguientes(temas, 2 * pedido.S, formato, azar);
       for (let i = 0; i < pedido.S; i++) {
         const caras = [];
-        for (const tema of elegidos.slice(2 * i, 2 * i + 2)) {
-          const sopa = B.sopas.generar(tema, azar);
+        for (const tema of secuencia.lista.slice(2 * i, 2 * i + 2)) {
+          const sopa = B.sopas.generar(tema, azar, formato);
           const chk = B.sopas.comprobar(sopa);
           if (chk.errores.length) throw new Error('Sopa defectuosa (' + tema.t + '): ' + chk.errores.join('; '));
           caras.push({ datos: sopa, codigo: codigos.nuevo(B.sopas.formatoCodigo()) });
@@ -132,6 +116,7 @@
       delete s.doc;
     }
     codigos.confirmar();
+    if (secuencia) secuencia.confirmar();
     aviso('Listo', 1);
     return { archivos: salida, fichas: fichas.map(fi => ({ tipo: fi.tipo, codigos: fi.caras.map(c => c.codigo) })) };
   }

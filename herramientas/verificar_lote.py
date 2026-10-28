@@ -90,36 +90,48 @@ def norm(w):
     s = w.upper().replace('Ñ', '\x01'); s = unicodedata.normalize('NFD', s)
     return ''.join(c for c in s if unicodedata.category(c) != 'Mn').replace('\x01', 'Ñ')
 def buscar(g, w):
-    res = set()
-    for r in range(15):
-        for c in range(15):
+    res = set(); N = len(g)
+    for r in range(N):
+        for c in range(N):
             for dr, dc in N8:
                 er, ec = r + dr*(len(w)-1), c + dc*(len(w)-1)
-                if 0 <= er < 15 and 0 <= ec < 15 and all(g[r+dr*i][c+dc*i] == w[i] for i in range(len(w))):
+                if 0 <= er < N and 0 <= ec < N and all(g[r+dr*i][c+dc*i] == w[i] for i in range(len(w))):
                     res.add(tuple(sorted([(r, c), (er, ec)])) + ((dr, dc),))
     return res
-def leer_rejilla(page, x0, y0, celda, tam):
-    g = [[''] * 15 for _ in range(15)]
+# tamaños de sopa: normal 15 × 15 (16 palabras) y ampliada 18 × 18 (24 palabras)
+FORMATOS = {16: dict(N=15, celda=10, y0=200.24, letra=17.43), 24: dict(N=18, celda=8.5, y0=152, letra=14.8)}
+MM = 72 / 25.4
+def leer_rejilla(page, x0, y0, celda, tam, N=15):
+    g = [[''] * N for _ in range(N)]
     for c in page.chars:
         if abs(c['size'] - tam) > 0.3: continue
         cx = (c['x0'] + c['x1']) / 2; cy = (c['top'] + c['bottom']) / 2
         k = int((cx - x0) // celda); r = int((cy - y0) // celda)
-        if 0 <= k < 15 and 0 <= r < 15: g[r][k] += c['text']
+        if 0 <= k < N and 0 <= r < N: g[r][k] += c['text']
     return [''.join(f) for f in g], g
 def comprobar_sopas(fichas_pdf, sol_pdf):
     F = pdfplumber.open(fichas_pdf); S = pdfplumber.open(sol_pdf)
-    errores = 0; sopas = {}
+    errores = 0; sopas = {}; vistas_sopas = {}
     for p in F.pages:
         t = p.extract_text() or ''
         if 'SOPA DE LETRAS' not in t: continue
         cod = re.search(r'(\d{4}-S)', t).group(1)
-        filas, g = leer_rejilla(p, 85.04, 200.24, 28.3465, 17.43)
+        k = int(re.search(r'estas (\d+) palabras', t).group(1))
+        if k not in FORMATOS: print(cod, 'número de palabras', k); errores += 1; continue
+        F = FORMATOS[k]; N = F['N']; celda = F['celda'] * MM; lado = N * celda
+        filas, g = leer_rejilla(p, (595.28 - lado) / 2, F['y0'], celda, F['letra'], N)
         if any(len(x) != 1 for f in g for x in f): print(cod, 'rejilla incompleta'); errores += 1; continue
-        palabras = [s['text'] for s in p.extract_words(extra_attrs=['size']) if 12 < s['size'] < 14]
         lista = []
         for w in p.extract_words(extra_attrs=['size'], keep_blank_chars=False):
-            if 10 < w['size'] < 14 and w['top'] > 650: lista.append(w['text'])
-        if len(lista) != 16: print(cod, 'la lista no tiene 16 palabras', lista); errores += 1
+            if 8.5 < w['size'] < 14 and w['top'] > F['y0'] + lado: lista.append(w['text'])
+        if len(lista) != k: print(cod, f'la lista no tiene {k} palabras', lista); errores += 1
+        fuera = [c['text'] for c in p.chars if c['x1'] > 553.5 or c['x0'] < 42 or c['bottom'] > 800]  # la última columna va al ras del margen (552,8)
+        if fuera: print(cod, 'texto fuera de los márgenes', ''.join(fuera)); errores += 1
+        juntas = [(a, b) for i, a in enumerate(lista) for b in lista[i+1:] if norm(a) in norm(b) or norm(b) in norm(a) or norm(a)[::-1] in norm(b) or norm(b)[::-1] in norm(a)]
+        if juntas: print(cod, 'palabras que se contienen', juntas); errores += 1
+        clave = (t.split('\n')[1] if '\n' in t else '', tuple(sorted(lista)))
+        if clave in vistas_sopas: print(cod, 'sopa repetida en el lote (mismo tema y palabras que', vistas_sopas[clave] + ')'); errores += 1
+        vistas_sopas[clave] = cod
         cuenta = collections.Counter()
         for w in lista:
             ap = buscar(filas, norm(w))
@@ -131,7 +143,7 @@ def comprobar_sopas(fichas_pdf, sol_pdf):
             (a, b, d), = [(x[0], x[1], x[2]) for x in ap]
             ds = {(0,1):'E',(1,0):'S',(1,1):'SE',(-1,1):'NE',(0,-1):'E',(-1,0):'S',(-1,-1):'SE',(1,-1):'NE'}[d]
             cuenta[ds] += 1
-        if min(cuenta.values(), default=0) < 3 or len(cuenta) < 4: print(cod, 'direcciones', dict(cuenta)); errores += 1
+        if min(cuenta.values(), default=0) < k // 4 - 1 or len(cuenta) < 4: print(cod, 'direcciones', dict(cuenta)); errores += 1
         for m in MALAS:
             if any(m in norm(w) or m in norm(w)[::-1] for w in lista): continue
             if buscar(filas, m): print(cod, 'malsonante', m); errores += 1
@@ -145,8 +157,10 @@ def comprobar_sopas(fichas_pdf, sol_pdf):
             cods = [w for w in p.extract_words() if abs(w['x0'] - x) < 1 and abs(w['bottom'] - yb) < 4 and re.fullmatch(r'\d{4}-S', w['text'])]
             if not cods: continue
             cod = cods[0]['text']
-            filas, g = leer_rejilla(p, x + 2.74, yb + 9.6, 5.4 * 72 / 25.4, 9.96)
-            if cod not in sopas or filas != sopas[cod][0]: print(cod, 'la solución no coincide con la ficha'); errores += 1
+            if cod not in sopas: print(cod, 'solución sin ficha'); errores += 1; continue
+            N = len(sopas[cod][0])
+            filas, g = leer_rejilla(p, x + 2.74, yb + 9.6, 81 * MM / N, 9.96 * 15 / N, N)
+            if filas != sopas[cod][0]: print(cod, 'la solución no coincide con la ficha'); errores += 1
             vistas += 1
     print(f'sopas: {len(sopas)} fichas, {vistas} soluciones, direcciones {[v[2] for v in sopas.values()]}, errores: {errores}')
     if vistas != len(sopas): print('faltan soluciones de sopas'); errores += 1

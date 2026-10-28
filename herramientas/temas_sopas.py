@@ -1,0 +1,323 @@
+# Temas de las sopas de letras: 80 campos semánticos de vocabulario cotidiano, cada uno con
+# 40 palabras o más. Los 50 primeros conservan las 16 palabras del cuaderno original
+# (octubre de 2026) y las amplían. Cada sopa toma una parte de la lista de su tema (16 palabras
+# en la sopa normal, 24 en la ampliada), así que un mismo tema sale con combinaciones distintas.
+# Para cambiar algo: editar aquí y ejecutar «python3 construir_sopas.py», que comprueba la
+# ortografía, las longitudes y las palabras que se contienen unas a otras.
+
+TEMAS = [
+("La casa", """salón cocina dormitorio baño pasillo terraza balcón garaje ventana puerta techo suelo pared
+ tejado jardín ascensor entrada recibidor desván trastero sótano patio escalera chimenea buhardilla
+ persiana timbre buzón azulejo baldosa tabique ladrillo cerradura llave pomo bisagra cristal moqueta
+ tarima despensa lavadero piscina valla verja portal porche fachada"""),
+("Muebles y ropa de cama", """mesa silla sofá cama armario estantería sillón cómoda lámpara alfombra cortina
+ colchón almohada sábana manta perchero mesita taburete banqueta butaca litera cuna escritorio aparador
+ vitrina librería zapatero cajonera espejo baúl biombo cabecero somier edredón colcha funda cojín nórdico
+ visillo estor puf mecedora tumbona banco"""),
+("Utensilios de cocina", """olla sartén cazo cazuela cucharón espumadera rallador colador abrelatas sacacorchos
+ bandeja delantal báscula embudo tapadera mortero cuchillo tenedor cuchara plato vaso taza jarra copa
+ cuenco fuente bol batidor rodillo tabla espátula pinzas tijeras paellera molde servilleta mantel salero
+ aceitera azucarero tetera cafetera termo fiambrera manopla estropajo cubierto pelador"""),
+("Electrodomésticos", """nevera horno microondas tostadora batidora cafetera lavadora secadora lavavajillas
+ plancha aspiradora ventilador congelador exprimidor freidora calefactor frigorífico vitrocerámica placa
+ campana extractor calentador radiador estufa televisor radio yogurtera molinillo licuadora picadora
+ amasadora hervidor climatizador humidificador purificador afeitadora maquinilla depiladora rizador
+ termostato"""),
+("Limpieza del hogar", """escoba fregona cubo recogedor bayeta estropajo lejía detergente suavizante plumero
+ trapo jabón bolsa basura cepillo amoniaco aspiradora guantes mopa esponja quitamanchas friegasuelos
+ ambientador insecticida papelera contenedor reciclaje polvo mancha suciedad cera abrillantador
+ desinfectante pinza tendedero colada cesto plancha toallita paño gamuza desatascador"""),
+("El cuarto de baño", """ducha bañera lavabo grifo espejo toalla champú peine váter esponja desodorante colonia
+ crema mampara albornoz secador cepillo dentífrico jabón gel bidé cisterna alfombrilla maquinilla colutorio
+ mascarilla perfume esmalte lima pinzas algodón bastoncillo báscula toallero escobilla maquillaje
+ pintalabios rímel tijeras cortaúñas"""),
+("Frutas", """manzana pera plátano naranja uva fresa melón sandía piña cereza melocotón kiwi limón mandarina
+ ciruela mango albaricoque nectarina pomelo granada higo dátil coco aguacate papaya lima frambuesa mora
+ arándano grosella membrillo níspero caqui chirimoya maracuyá guayaba lichi breva castaña nuez almendra
+ avellana"""),
+("Verduras y hortalizas", """tomate lechuga cebolla ajo patata zanahoria pimiento pepino calabacín berenjena
+ espinaca coliflor brócoli puerro guisante alcachofa repollo acelga apio rábano remolacha nabo espárrago
+ judía haba calabaza boniato champiñón seta alubia maíz cebolleta cardo endibia escarola rúcula canónigo
+ berro perejil cilantro guindilla jengibre lombarda"""),
+("La despensa", """pan arroz harina aceite azúcar sal pasta lentejas garbanzos galletas cereales vinagre
+ mermelada miel conservas especias café cacao leche huevos legumbres alubias macarrones espaguetis
+ fideos sardinas atún mostaza levadura pimienta orégano canela comino pimentón laurel caldo chocolate
+ aceitunas tostadas manzanilla"""),
+("Carnicería y charcutería", """pollo ternera cordero filete chuleta costilla salchicha chorizo lomo jamón bacón
+ morcilla albóndiga pechuga solomillo salchichón cerdo cabrito conejo pavo codorniz hamburguesa muslo
+ entrecot secreto panceta chistorra longaniza fuet sobrasada mortadela salami paté cecina lacón codillo
+ rabo callos hígado magro chicharrones"""),
+("Pescados y mariscos", """sardina atún merluza pulpo calamar gamba mejillón almeja boquerón salmón bacalao
+ lenguado dorada sepia langostino rape lubina besugo trucha rodaballo caballa bonito anchoa mero gallo
+ emperador chipirón berberecho navaja ostra vieira cigala bogavante langosta centolla nécora percebe
+ cangrejo camarón carabinero pescadilla jurel abadejo"""),
+("Platos típicos", """paella tortilla gazpacho cocido croqueta callos fabada ensalada caldo migas pisto
+ salmorejo churros bocadillo empanada potaje lentejas puchero escalivada cachopo marmitako fideuá sopa
+ puré torrijas flan natillas gachas ajoblanco porra pipirrana escabeche asado cochinillo pote estofado
+ guiso albóndigas flamenquín ensaimada buñuelos"""),
+("Bebidas", """agua leche zumo café infusión refresco vino cerveza gaseosa batido sidra horchata chocolate
+ limonada tónica mosto poleo manzanilla tila cava champán licor anís orujo coñac ron ginebra vermú sangría
+ tinto clarete rosado granizado cortado capuchino carajillo kéfir naranjada soda caña"""),
+("En el restaurante", """menú carta cuenta propina plato vaso tenedor cuchara cuchillo servilleta postre tapa
+ ración reserva mantel primero segundo camarero cocinero mesa silla barra terraza aperitivo entrante
+ bebida jarra copa botella hielo tique comensal cubierto comanda bandeja aseo pincho salero palillo
+ pedido"""),
+("La ropa", """camisa camiseta pantalón falda vestido chaqueta abrigo jersey sudadera calcetín pijama chándal
+ blusa corbata cazadora vaqueros chaleco bata traje uniforme bañador bikini bragas calzoncillo sujetador
+ medias leotardos camisón chubasquero gabardina impermeable anorak plumífero polo bermudas mono peto
+ rebeca batín poncho"""),
+("Calzado y complementos", """zapato bota sandalia zapatilla chancla bolso cinturón gorra sombrero guantes bufanda
+ paraguas reloj pulsera collar pendientes mocasín tacón alpargata botín zueco playeras gafas anillo
+ cartera monedero mochila riñonera llavero broche pañuelo pajarita gorro boina pamela diadema horquilla
+ coletero cadena colgante gemelos tirantes abanico"""),
+("El cuerpo", """cabeza brazo mano dedo pierna rodilla cadera espalda cuello hombro codo tobillo barriga pecho
+ uña muñeca cintura muslo talón pantorrilla gemelo axila nuca ombligo trasero nalga palma puño pulgar
+ meñique índice costado tronco piel pelo hueso músculo garganta tripa planta empeine costilla columna"""),
+("La cara", """ojo nariz boca oreja ceja pestaña labio diente lengua mejilla frente barbilla pelo bigote muela
+ párpado sien pómulo mandíbula mentón lunar arruga peca pupila iris lágrima ceño encía paladar colmillo
+ oído moflete papada patilla flequillo melena rizo rostro gesto sonrisa mirada ojera"""),
+("La salud", """médico enfermera farmacia receta jarabe pastilla tirita venda fiebre tos gripe catarro dolor
+ hospital urgencias ambulancia vacuna análisis termómetro jeringuilla inyección pomada gasa algodón
+ alcohol escayola muleta camilla consulta cita pediatra alergia herida quemadura mareo tensión pulso
+ enfermo paciente radiografía operación vitamina reposo"""),
+("La familia", """padre madre hijo hija hermano hermana abuelo abuela tío tía primo prima sobrino nieto suegra
+ cuñado nieta sobrina suegro cuñada yerno nuera padrino madrina marido mujer esposo esposa novio novia
+ pareja bebé gemelo mellizo viudo pariente ahijado padrastro madrastra familia"""),
+("Profesiones", """profesor albañil fontanero electricista carpintero panadero camarero cocinero bombero policía
+ conductor abogado peluquero jardinero mecánico agricultor médico dentista farmacéutico cartero cajero
+ taxista pintor pescador ganadero pastor carnicero frutero secretario juez arquitecto veterinario
+ periodista fotógrafo músico actor cantante soldado piloto azafata conserje costurera zapatero mensajero
+ repartidor informático"""),
+("Tiendas", """panadería frutería carnicería pescadería ferretería librería zapatería peluquería papelería
+ floristería joyería droguería perfumería tintorería óptica quiosco farmacia supermercado estanco
+ mercería pastelería confitería charcutería heladería juguetería relojería lavandería bazar tienda
+ almacén cafetería churrería pollería ultramarinos sombrerería mueblería inmobiliaria autoescuela
+ gestoría gasolinera herboristería"""),
+("Servicios de la ciudad", """ayuntamiento biblioteca mercado colegio instituto museo cine teatro estación
+ polideportivo correos comisaría juzgado iglesia piscina gasolinera hospital ambulatorio bomberos cuartel
+ parque zoológico estadio guardería universidad residencia cementerio aparcamiento aeropuerto mezquita
+ sinagoga catedral ermita palacio castillo auditorio conservatorio gimnasio embajada consulado notaría"""),
+("La calle", """semáforo acera farola paso cruce esquina plaza parque banco fuente papelera buzón portal avenida
+ glorieta contenedor calzada bordillo alcantarilla señal cebra peatón rotonda bulevar callejón travesía
+ carril parada marquesina estatua monumento puente túnel bache adoquín asfalto barandilla valla cartel
+ grafiti tráfico atasco vado badén"""),
+("Medios de transporte", """coche autobús metro tren avión barco bicicleta moto taxi camión furgoneta tranvía
+ patinete helicóptero cercanías velero tractor ambulancia caravana yate lancha canoa piragua ferri crucero
+ submarino globo patines monopatín teleférico funicular grúa remolque trineo carro carreta autocar
+ limusina todoterreno dirigible cohete barca"""),
+("El coche", """rueda volante freno motor faro maletero asiento capó matrícula gasolina acelerador embrague
+ marcha neumático intermitente parabrisas puerta ventanilla retrovisor cinturón claxon bocina depósito
+ batería aceite radiador parachoques guantera llanta tapacubos escobilla palanca pedal gasóleo arranque
+ baca remolque gato repuesto taller multa chapa chasis escape"""),
+("Animales de casa y de granja", """perro gato vaca cerdo oveja cabra caballo burro gallina gallo pato conejo
+ canario loro tortuga pavo toro buey ternero cordero cabrito potro yegua mula asno oca ganso codorniz
+ hámster periquito pez cobaya hurón cachorro perdiz paloma faisán lechón avestruz llama"""),
+("Animales salvajes", """león tigre elefante jirafa mono oso lobo zorro ciervo jabalí serpiente cocodrilo cebra
+ canguro águila ardilla leopardo guepardo pantera puma lince hiena gorila chimpancé orangután hipopótamo
+ rinoceronte camello dromedario búfalo bisonte alce reno gacela antílope koala panda mapache castor
+ nutria erizo murciélago topo tejón lagarto camaleón"""),
+("Insectos y bichos", """hormiga abeja mosca mosquito mariposa araña cucaracha grillo saltamontes escarabajo
+ mariquita caracol lombriz avispa pulga libélula polilla piojo garrapata chinche cigarra luciérnaga oruga
+ gusano babosa ciempiés escorpión alacrán tarántula abejorro termita cochinilla mantis tábano zángano
+ larva crisálida capullo hormiguero colmena panal avispero pulgón tijereta sanguijuela"""),
+("El tiempo atmosférico", """sol lluvia nieve viento nube tormenta rayo trueno niebla granizo calor frío hielo
+ arcoíris humedad temperatura relámpago brisa huracán tornado ciclón borrasca chubasco llovizna aguacero
+ tromba sequía escarcha rocío helada ventisca neblina bruma nubarrón tempestad vendaval nevada cielo
+ despejado nublado clima pronóstico"""),
+("El calendario", """enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre
+ primavera verano otoño invierno lunes martes miércoles jueves viernes sábado domingo hoy ayer mañana
+ semana año hora minuto segundo siglo fecha festivo puente madrugada mediodía tarde noche calendario
+ agenda década"""),
+("Colores y formas", """rojo azul verde amarillo naranja blanco negro gris rosa morado marrón beis dorado
+ plateado violeta celeste lila granate turquesa ocre círculo cuadrado triángulo rectángulo rombo óvalo
+ estrella corazón cruz flecha línea punto espiral esfera cubo cilindro cono pirámide prisma hexágono"""),
+("Los números", """uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce quince veinte
+ treinta cuarenta cincuenta sesenta setenta noventa cien mil cero docena mitad doble triple decena
+ centena suma resta producto divisor resto par factor unidad dividendo"""),
+("Material escolar", """lápiz bolígrafo goma cuaderno libro regla tijeras pegamento mochila estuche sacapuntas
+ pizarra tiza calculadora diccionario compás rotulador ceras acuarela pincel cartulina folio carpeta
+ archivador agenda grapadora clip chincheta celo escuadra cartabón transportador borrador corrector
+ plastilina témpera papel pupitre portaminas mapa atlas examen apuntes subrayador"""),
+("La oficina", """ordenador impresora teclado ratón pantalla grapadora clip sobre sello fotocopia archivo
+ carpeta teléfono correo agenda escáner escritorio silla mesa cajón bandeja calendario calculadora fax
+ tóner cartucho papel folio documento informe factura reunión jefe secretaria recepción despacho fichero
+ expediente firma tampón clasificador taladradora"""),
+("Herramientas", """martillo clavo tornillo destornillador alicates sierra taladro llave cinta lija brocha
+ pincel tuerca pala serrucho nivel tenazas escalera metro cúter lima formón cincel mazo pico azada
+ rastrillo hacha arandela taco broca soldador cola silicona masilla rodillo espátula llana plomada
+ escuadra sargento mordaza punzón remache bisagra candado carretilla"""),
+("Deportes", """fútbol baloncesto tenis natación ciclismo atletismo boxeo golf esquí judo kárate balonmano
+ voleibol pádel remo yoga béisbol rugby hockey gimnasia patinaje surf vela piragüismo escalada senderismo
+ maratón carrera salto lucha taekwondo esgrima polo billar petanca dardos aeróbic pilates triatlón hípica
+ raqueta árbitro canasta portería equipo medalla trofeo estadio"""),
+("Aficiones", """lectura pintura baile canto paseo jardinería costura dibujo manualidades fotografía ajedrez
+ senderismo pesca repostería punto crucigrama cine música teatro cocina bricolaje ganchillo bordado puzle
+ cartas dominó parchís karaoke camping excursión natación yoga bicicleta patinaje videojuegos radio series
+ películas poesía escritura idiomas huerto cerámica origami magia"""),
+("Acciones de cada día", """comer beber dormir andar correr hablar escribir leer escuchar mirar lavar cocinar
+ limpiar comprar trabajar descansar ducharse vestirse peinarse despertar desayunar cenar almorzar
+ merendar barrer fregar planchar tender coser pagar llamar saludar caminar subir bajar abrir cerrar jugar
+ cantar bailar estudiar pensar sonreír esperar conducir pasear aprender enseñar ayudar"""),
+("Emociones", """alegría tristeza miedo enfado sorpresa amor calma nervios vergüenza orgullo cariño envidia
+ celos ilusión pena asco odio rabia felicidad ternura ansiedad angustia estrés nostalgia esperanza
+ confianza alivio culpa soledad aburrimiento entusiasmo satisfacción timidez paciencia terror pánico
+ preocupación duda admiración gratitud simpatía rencor compasión emoción placer susto agobio"""),
+("Cómo somos", """alto bajo delgado simpático amable alegre serio tímido valiente generoso honrado trabajador
+ paciente educado rubio moreno fuerte joven mayor pelirrojo castaño calvo risueño tranquilo nervioso
+ callado hablador puntual ordenado despistado curioso cariñoso sincero responsable divertido optimista
+ creativo sensible cuidadoso prudente atento humilde fiel leal listo sabio ágil elegante testarudo"""),
+("Paisajes", """montaña río lago mar playa bosque valle campo isla costa desierto cueva volcán colina selva
+ prado llanura meseta sierra cordillera pico cumbre ladera barranco cañón acantilado cascada arroyo
+ pantano laguna delta bahía cabo golfo península archipiélago océano duna oasis glaciar cráter pradera
+ dehesa estepa olivar viñedo huerta monte puerto"""),
+("Plantas y jardín", """árbol flor hoja raíz tallo semilla rosa margarita césped maceta regadera manguera
+ tierra abono cactus geranio tulipán clavel girasol lirio orquídea jazmín azucena amapola violeta lavanda
+ romero tomillo hiedra helecho musgo seto hierba rama tronco pétalo polen bulbo brote yema espina capullo
+ poda tijeras pala rastrillo invernadero"""),
+("Música", """guitarra piano violín tambor flauta trompeta batería arpa acordeón saxofón canción concierto
+ ritmo nota orquesta coro bajo clarinete trombón tuba oboe violonchelo pandereta castañuelas maracas
+ xilófono gaita ukelele teclado micrófono altavoz partitura melodía armonía pentagrama clave director
+ cantante grupo banda disco letra estribillo voz solista ópera zarzuela flamenco jazz rock"""),
+("Dinero y banco", """dinero tarjeta billete moneda euro cajero ahorro recibo factura préstamo interés pago
+ precio cambio nómina transferencia cuenta banco hipoteca cheque crédito deuda saldo ingreso gasto
+ cartera monedero hucha sueldo pensión impuesto comisión sucursal titular firma clave inversión bolsa
+ acción seguro presupuesto descuento oferta rebaja efectivo divisa dólar céntimo cobro"""),
+("Documentos y trámites", """pasaporte carné firma solicitud certificado instancia impreso cita ventanilla
+ registro formulario contrato fotografía dirección justificante padrón visado permiso licencia tarjeta
+ sello copia original expediente trámite oficina turno número plazo fecha declaración renta recurso
+ denuncia multa notificación carta sobre domicilio nacionalidad residencia funcionario sede requisito
+ documento resguardo recibo título diploma"""),
+("Viajes y vacaciones", """maleta hotel hostal mapa guía excursión cámara recuerdo postal camping gafas sombrilla
+ bañador turista aeropuerto crucero billete pasaporte equipaje mochila reserva tren avión barco playa
+ montaña museo monumento ruta visita agencia folleto tienda saco linterna brújula toalla crema bronceador
+ piscina turismo frontera aduana albergue apartamento parador pensión vuelo escala destino"""),
+("Fiestas y celebraciones", """cumpleaños boda navidad carnaval verbena tarta vela regalo globo invitado brindis
+ fiesta disfraz feria nochevieja uvas bautizo comunión aniversario graduación jubilación despedida
+ banquete baile orquesta confeti serpentina petardo cohete farolillo procesión romería cabalgata reyes
+ turrón polvorón mazapán roscón belén villancico estrella invitación champán piñata máscara antifaz
+ desfile comparsa pregón"""),
+("Tecnología de cada día", """móvil internet portátil contraseña aplicación cargador mensaje llamada vídeo wifi
+ tableta auriculares enchufe clave red altavoz pantalla teclado ratón impresora cámara correo usuario
+ archivo batería cable memoria nube navegador buscador página enlace descarga virus televisión mando
+ consola reloj robot router módem código chat emoticono pila"""),
+("El hospital", """médico enfermera enfermero celador paciente camilla cama habitación quirófano urgencias
+ consulta planta pasillo ascensor ambulancia cirujano anestesia operación análisis radiografía ecografía
+ escáner suero gotero jeringa vendaje escayola muleta termómetro tensión pulso fiebre receta pastilla
+ visita alta ingreso pijama bata mascarilla guantes"""),
+("En clase", """profesor alumno alumna compañero pizarra tiza borrador mesa silla pupitre libro cuaderno lápiz
+ bolígrafo goma regla mochila estuche examen nota deberes lección ejercicio pregunta respuesta lectura
+ dictado escritura cuenta suma resta problema horario recreo aula asignatura matrícula curso nivel tutor
+ diploma biblioteca ordenador proyector"""),
+("El trabajo", """empresa empleo contrato nómina sueldo salario horario turno jornada jefe jefa compañero
+ cliente oficina fábrica taller almacén uniforme entrevista currículum despido paro sindicato convenio
+ vacaciones permiso baja huelga ascenso puesto tarea reunión equipo cargo descanso seguridad casco
+ experiencia formación prácticas autónomo plantilla"""),
+("En la obra", """albañil ladrillo cemento hormigón arena grava yeso andamio grúa carretilla pala pico llana
+ nivel plomada martillo cincel taladro casco chaleco guantes botas viga columna pilar muro tabique tejado
+ azulejo baldosa tubería cable escalera cubo saco obrero encofrado zanja excavadora planos arquitecto
+ capataz"""),
+("El campo y la granja", """granja establo cuadra corral gallinero pocilga granero huerto huerta cosecha
+ siembra semilla arado tractor azada hoz guadaña trigo cebada maíz avena centeno heno paja abono riego
+ pozo acequia surco vendimia uva olivo aceituna granjero pastor rebaño ganado vaca oveja cerdo gallina
+ huevo leche queso"""),
+("La playa", """arena mar ola orilla agua sol sombrilla toalla hamaca tumbona bañador bikini gafas gorra crema
+ protector chanclas cubo pala rastrillo castillo concha cangrejo gaviota socorrista bandera barca velero
+ surf colchoneta flotador pelota helado chiringuito paseo roca acantilado faro puerto muelle espigón duna
+ bahía"""),
+("La montaña", """cumbre cima pico ladera valle sierra cordillera roca piedra nieve glaciar bosque pino abeto
+ refugio cabaña sendero camino ruta mochila bastón botas cuerda brújula mapa linterna tienda saco
+ excursión escalada montañero senderismo río arroyo cascada lago puerto collado barranco cueva águila
+ cabra marmota oso"""),
+("El cine y el teatro", """película pantalla butaca entrada taquilla palomitas actor actriz director guion
+ escenario telón obra comedia drama tragedia musical estreno función público aplauso cartel sala fila
+ asiento acomodador cámara rodaje personaje papel diálogo subtítulos doblaje maquillaje vestuario
+ decorado ensayo estrella premio crítica"""),
+("Medios de comunicación", """periódico revista radio televisión internet noticia titular portada artículo
+ entrevista reportaje anuncio publicidad locutor presentador periodista reportero cámara micrófono antena
+ canal emisora programa informativo telediario debate tertulia concurso serie documental cadena oyente
+ lector espectador redacción columna viñeta editorial prensa audiencia directo"""),
+("El aeropuerto", """avión pista terminal puerta embarque facturación maleta equipaje pasaporte billete
+ tarjeta control seguridad aduana vuelo piloto azafata tripulación pasajero asiento ventanilla pasillo
+ cinturón despegue aterrizaje retraso escala destino llegada salida mostrador carro torre radar hangar
+ motor turbulencia cabina pantalla bodega"""),
+("En el tren y el autobús", """estación andén vagón tren autobús metro tranvía billete abono tarjeta horario
+ parada conductor revisor maquinista asiento ventanilla pasillo puerta equipaje maletero viajero pasajero
+ línea trayecto destino salida llegada retraso transbordo taquilla máquina torno plano ruta cercanías
+ dársena cafetería litera locomotora"""),
+("El hotel", """recepción habitación reserva llave tarjeta ascensor botones cama almohada sábana toalla ducha
+ minibar desayuno bufé restaurante piscina gimnasio terraza balcón pasillo planta suite huésped cliente
+ factura estrella hostal pensión albergue parador conserje portero maleta equipaje registro entrada salida
+ noche estancia calefacción televisión servicio limpieza"""),
+("La peluquería", """peluquero peluquera tijeras peine cepillo secador champú tinte mechas corte flequillo
+ melena rizos coleta trenza moño raya pelo cabello calvo barba bigote patilla navaja maquinilla espuma
+ laca gomina horquilla diadema lavado peinado permanente alisado espejo sillón toalla bata capa cita uñas
+ manicura esmalte rulo"""),
+("Cocinar", """freír cocer hervir asar hornear guisar pelar cortar picar trocear rallar batir mezclar remover
+ rebozar empanar aliñar sazonar salar escurrir colar triturar machacar marinar gratinar tostar dorar
+ calentar enfriar congelar servir probar untar rellenar enrollar derretir fundir receta fogón fuego"""),
+("Postres y dulces", """tarta pastel bizcocho magdalena galleta flan natillas helado yogur torrija churro
+ buñuelo rosquilla palmera cruasán napolitana ensaimada turrón polvorón mazapán chocolate bombón caramelo
+ piruleta chicle gominola nata merengue tiramisú crema compota mermelada miel azúcar cacao barquillo
+ cucurucho gofre tortita dónut sorbete macedonia cuajada milhojas bollo"""),
+("El desayuno", """café leche cacao zumo tostada pan mantequilla mermelada aceite tomate jamón queso huevo
+ cereales galleta magdalena bollo cruasán churros yogur fruta miel azúcar sacarina taza vaso plato
+ cuchara cucharilla servilleta tostadora bandeja mesa infusión manzanilla porra bizcocho bocadillo
+ embutido batido plátano naranja"""),
+("Órganos del cuerpo", """corazón pulmón cerebro hígado riñón estómago intestino páncreas bazo vejiga piel
+ hueso músculo sangre vena arteria nervio esqueleto columna costilla cráneo médula tráquea esófago
+ garganta laringe faringe tendón ligamento cartílago tiroides glándula diafragma pelvis vértebra fémur
+ tibia húmero rótula neurona célula"""),
+("El universo", """universo galaxia estrella planeta sol luna tierra marte venus júpiter saturno urano neptuno
+ mercurio cometa asteroide meteorito satélite órbita eclipse telescopio astronauta cohete nave
+ constelación nebulosa cráter gravedad atmósfera luz espacio polo eje ecuador hemisferio día noche año
+ astrónomo observatorio"""),
+("Aves", """gallina gallo pato ganso pavo codorniz perdiz faisán paloma gorrión golondrina vencejo mirlo
+ jilguero canario periquito loro cotorra urraca cuervo búho lechuza águila halcón buitre cigüeña garza
+ flamenco gaviota pelícano pingüino avestruz colibrí tucán cisne petirrojo ruiseñor abubilla estornino
+ alondra grulla"""),
+("Animales marinos", """ballena delfín tiburón orca foca morsa pulpo calamar medusa erizo cangrejo langosta
+ gamba almeja mejillón ostra coral esponja tortuga manta raya sardina atún salmón bacalao merluza anguila
+ morena nutria pingüino alga anémona mero dorada lubina besugo caballa boquerón sepia percebe"""),
+("Árboles", """pino abeto roble encina olivo castaño nogal almendro naranjo limonero manzano peral cerezo chopo
+ álamo sauce haya fresno olmo palmera ciprés eucalipto acacia abedul alcornoque arce tilo laurel magnolio
+ sabina enebro tejo avellano higuera granado madroño ciruelo melocotonero acebo pinsapo"""),
+("Juegos y juguetes", """muñeca pelota balón cometa peonza yoyó comba canica cromo dado puzle ajedrez dominó
+ parchís oca damas cartas baraja bingo trompo rompecabezas escondite rayuela columpio tobogán patinete
+ triciclo coche tren peluche marioneta títere sonajero globo pompas cuerda videojuego consola piñata
+ disfraz tablero ficha"""),
+("El ordenador e internet", """ordenador portátil pantalla teclado ratón altavoz impresora escáner cable enchufe
+ batería memoria disco archivo carpeta programa aplicación navegador buscador página enlace correo usuario
+ contraseña clave virus nube descarga copia icono ventana menú botón cursor pestaña servidor red wifi
+ router módem"""),
+("Medio ambiente", """naturaleza reciclaje contenedor basura residuo plástico vidrio papel cartón envase
+ orgánico compost energía agua ahorro contaminación humo polución sequía incendio bosque árbol selva
+ océano clima calentamiento deshielo glaciar especie extinción ecología planeta tierra aire ruido pila
+ aceite bombilla bicicleta panel viento"""),
+("La energía", """energía electricidad luz corriente enchufe cable interruptor bombilla pila batería motor
+ generador turbina dinamo central presa embalse molino viento sol placa carbón petróleo gasolina butano
+ leña combustible calor vatio voltio contador factura consumo ahorro potencia fuerza hidrógeno nuclear
+ radiador estufa"""),
+("Pesos y medidas", """metro kilómetro centímetro milímetro decímetro hectómetro decámetro litro mililitro
+ centilitro decilitro gramo kilogramo miligramo tonelada longitud masa capacidad superficie volumen área
+ hectárea peso medida unidad mitad cuarto doble regla báscula balanza termómetro grado temperatura reloj
+ hora minuto segundo cinta pesa libra onza pulgada palmo milla arroba quintal yarda legua docena probeta"""),
+("Geometría", """punto recta línea segmento ángulo vértice lado triángulo cuadrado rectángulo rombo trapecio
+ pentágono hexágono octógono polígono círculo circunferencia radio diámetro arco cuerda centro perímetro
+ área cubo prisma pirámide cilindro cono esfera cara arista base altura paralela perpendicular diagonal
+ eje simetría compás escuadra cartabón transportador cuadrilátero volumen"""),
+("Materiales", """madera hierro acero cobre oro plata plástico cristal vidrio papel cartón tela algodón lana seda
+ cuero piel goma caucho corcho piedra mármol granito arcilla barro ladrillo cemento hormigón yeso arena
+ aluminio bronce latón estaño plomo porcelana cerámica nailon poliéster lino mimbre bambú"""),
+("Países del mundo", """España Francia Italia Portugal Alemania Grecia Rumanía Marruecos Argelia Egipto Senegal
+ Nigeria Malí Ghana Kenia China Japón India Pakistán Filipinas Rusia Ucrania Polonia Bulgaria México Cuba
+ Colombia Venezuela Ecuador Perú Bolivia Chile Argentina Uruguay Paraguay Brasil Honduras Guatemala
+ Canadá Australia Turquía Irlanda Suecia Noruega"""),
+("Hacer la compra", """lista carro cesta bolsa caja cajera cajero tique factura precio oferta descuento rebaja
+ kilo gramo litro docena paquete bote lata botella tarro bandeja caducidad marca etiqueta código tarjeta
+ efectivo cambio monedas billete cola mostrador pasillo estantería congelado fresco supermercado mercado
+ frutería carnicería pescadería"""),
+("La comunidad de vecinos", """vecino vecina portal escalera ascensor buzón portero conserje rellano piso planta
+ letra puerta timbre telefonillo azotea trastero garaje patio terraza tendedero cuota junta presidente
+ administrador reunión acta derrama gastos limpieza contador agua luz basura contenedor normas ruido
+ llave cerradura felpudo vivienda bloque"""),
+]

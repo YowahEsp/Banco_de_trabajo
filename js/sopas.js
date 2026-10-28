@@ -1,17 +1,25 @@
 /* =====================================================================
    BANCO DE TRABAJO · sopas de letras
    Reglas y maqueta del cuaderno «Sopas de letras: 50 fichas de vocabulario
-   cotidiano» (octubre de 2026): 50 campos semánticos de 16 palabras,
-   cuadrícula 15 × 15 en mayúsculas sin tildes (la Ñ se mantiene), cuatro
-   palabras en cada dirección (→ ↓ ↘ ↗), ninguna al revés, cada palabra
-   aparece una sola vez mirando en las 8 direcciones y el relleno no forma
-   palabras malsonantes. Cada ficha sale con una cuadrícula nueva.
+   cotidiano» (octubre de 2026): mayúsculas sin tildes (la Ñ se mantiene),
+   el mismo número de palabras en cada dirección (→ ↓ ↘ ↗), ninguna al revés,
+   cada palabra aparece una sola vez mirando en las 8 direcciones y el
+   relleno no forma palabras malsonantes. Cada ficha sale con una cuadrícula
+   nueva.
+   Dos tamaños: normal (15 × 15, 16 palabras, como el cuaderno) y ampliada
+   (18 × 18, 24 palabras).
+   Temas y palabras salen de una secuencia fija (ver «Secuencia»): 80 temas
+   de 40 palabras o más; un tema no vuelve a salir con las mismas palabras
+   hasta pasadas 96 000 sopas.
    ===================================================================== */
 (function (global) {
   'use strict';
   const B = global.Banco;
 
-  const N = 15;
+  const FORMATOS = {
+    normal: { N: 15, porDir: 4, nombre: 'normal' },
+    ampliada: { N: 18, porDir: 6, nombre: 'ampliada' }
+  };
   const DIRS = { E: [0, 1], S: [1, 0], SE: [1, 1], NE: [-1, 1] };
   const ALL8 = [[0, 1], [1, 0], [1, 1], [-1, 1], [0, -1], [-1, 0], [-1, -1], [1, -1]];
   const FREQ = { A: 12.5, B: 1.4, C: 4.7, D: 5.9, E: 13.7, F: .7, G: 1, H: .7, I: 6.2, J: .4, K: .05, L: 5,
@@ -31,7 +39,7 @@
 
   /* ---------- Generación ---------- */
   function apariciones(g, w) {
-    const L = w.length, vistas = new Set(), res = [];
+    const N = g.length, L = w.length, vistas = new Set(), res = [];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       if (g[r][c] !== w[0]) continue;
       for (const [dr, dc] of ALL8) {
@@ -47,10 +55,10 @@
     return res;
   }
 
-  function colocar(palabras, azar) {
+  function colocar(palabras, azar, N) {
     const g = Array.from({ length: N }, () => new Array(N).fill(null));
     const orden = palabras.slice().sort((a, b) => b.length - a.length);
-    const plan = B.barajar(azar, ['E', 'S', 'SE', 'NE', 'E', 'S', 'SE', 'NE', 'E', 'S', 'SE', 'NE', 'E', 'S', 'SE', 'NE']);
+    const plan = B.barajar(azar, palabras.map((_, i) => ['E', 'S', 'SE', 'NE'][i % 4]));
     const colocadas = {};
     for (let k = 0; k < orden.length; k++) {
       const w = orden[k], L = w.length, d0 = plan[k];
@@ -85,18 +93,21 @@
 
   function celdas(o, L) { return Array.from({ length: L }, (_, i) => [o.r + o.dr * i, o.c + o.dc * i]); }
 
-  /* Devuelve { titulo, palabras (con tildes), grid (15 cadenas), colocadas } */
-  function generar(tema, azar) {
+  /* tema: { t: título, p: palabras ya elegidas (con tildes) }; formato: 'normal' o 'ampliada'.
+     Devuelve { titulo, palabras, formato, grid (N cadenas), colocadas } */
+  function generar(tema, azar, formato) {
+    const F = FORMATOS[formato || 'normal'], N = F.N;
+    if (tema.p.length !== 4 * F.porDir) throw new Error('La sopa «' + tema.t + '» necesita ' + 4 * F.porDir + ' palabras');
     const palabras = tema.p.map(B.normalizar);
     const malas = MALSONANTES.filter(b => !palabras.some(w => w.includes(b) || w.split('').reverse().join('').includes(b)));
     for (let intento = 0; intento < 6000; intento++) {
-      const res = colocar(palabras, azar);
+      const res = colocar(palabras, azar, N);
       if (!res) continue;
       const { g: g0, colocadas } = res;
       const cuenta = { E: 0, S: 0, SE: 0, NE: 0 };
       for (const w in colocadas) cuenta[colocadas[w].dir]++;
-      /* cuatro en cada dirección; si un campo no lo permite, al menos tres */
-      const minimo = intento < 4000 ? 4 : 3;
+      /* las mismas en cada dirección; si no se logra, una menos como mucho */
+      const minimo = intento < 4000 ? F.porDir : F.porDir - 1;
       if (Math.min(cuenta.E, cuenta.S, cuenta.SE, cuenta.NE) < minimo) continue;
       const g = g0.map(fila => fila.map(ch => ch === null ? B.elegirPeso(azar, LETRAS, PESOS) : ch));
       for (let vuelta = 0; vuelta < 300; vuelta++) {
@@ -121,7 +132,7 @@
         }
         if (muerta) break;
         if (!malasCeldas.size) {
-          return { titulo: tema.t, palabras: tema.p.slice(), grid: g.map(f => f.join('')), colocadas };
+          return { titulo: tema.t, palabras: tema.p.slice(), formato: F.nombre, grid: g.map(f => f.join('')), colocadas };
         }
         for (const [r, c] of malasCeldas.values()) g[r][c] = B.elegirPeso(azar, LETRAS, PESOS);
       }
@@ -133,6 +144,8 @@
   function comprobar(s) {
     const errores = [];
     const ALFA = new Set('ABCDEFGHIJKLMNÑOPQRSTUVWXYZ');
+    const F = FORMATOS[s.formato || 'normal'], N = F.N;
+    if (s.palabras.length !== 4 * F.porDir) errores.push('número de palabras');
     if (s.grid.length !== N || s.grid.some(f => [...f].length !== N)) errores.push('tamaño');
     const g = s.grid.map(f => [...f]);
     if (g.some(f => f.some(ch => !ALFA.has(ch)))) errores.push('letra no válida');
@@ -161,7 +174,7 @@
   const NAVY = '#1D3557', TURQ = '#2A9D8F', TINTA = '#1B2332', GRIS_REJ = '#C6C6C6';
 
   function dibujarRejilla(lz, f, s, x0, y0, celda, cuerpo, solucion) {
-    const lado = N * celda;
+    const N = s.grid.length, lado = N * celda;
     lz.rect(x0, y0, lado, lado, B.hex('#FFFFFF'));
     const enSol = new Set();
     if (solucion) {
@@ -185,8 +198,9 @@
       const fila = [...s.grid[r]];
       for (let c = 0; c < N; c++) {
         const color = (!solucion || enSol.has(r * N + c)) ? tinta : apagada;
-        /* la línea base queda 0,36 em de 11 pt por debajo del centro de la casilla */
-        lz.textoCentro(fila[c], x0 + (c + 0.5) * celda, y0 + (r + 0.5) * celda + 3.945, cuerpo, f.helvB, color);
+        /* línea base 3,945 bp por debajo del centro de la casilla con letra de 9,96 o 17,43 pt
+           (medido en el cuaderno); en proporción al cuerpo para otros tamaños */
+        lz.textoCentro(fila[c], x0 + (c + 0.5) * celda, y0 + (r + 0.5) * celda + 3.945 * Math.min(1, cuerpo / 9.96), cuerpo, f.helvB, color);
       }
     }
   }
@@ -226,8 +240,8 @@
     lz.linea(479.05, 53.28, 552.76, 53.28, 0.398, tinta);
     /* Título y enunciado */
     lz.texto(s.titulo, 42.52, 95.62, 25.9, f.helvB, navy);
-    const t = 12.95;
-    lz.texto('Busca y rodea estas 16 palabras.', 42.52, 119.09, t, f.helv, tinta);
+    const t = 12.95, amp = s.formato === 'ampliada';
+    lz.texto('Busca y rodea estas ' + s.palabras.length + ' palabras.', 42.52, 119.09, t, f.helv, tinta);
     lz.texto('Pueden estar en horizontal', 238.86, 119.09, t, f.helv, tinta);
     flecha(lz, 397.24, 119.09, 'E', tinta);
     lz.texto(', en vertical', 409.2, 119.09, t, f.helv, tinta);
@@ -238,21 +252,29 @@
     flecha(lz, 110.62, 132.64, 'NE', tinta);
     lz.texto('.', 122.59, 132.64, t, f.helv, tinta);
     lz.texto('En la sopa, las palabras van sin tilde.', 130.64, 132.64, t, f.helv, tinta);
-    /* Cuadrícula: casillas de 10 mm, letras de 17,5 pt */
-    dibujarRejilla(lz, f, s, 85.04, 200.24, 10 * B.MM, 17.43, false);
-    /* Lista de palabras en cuatro columnas: cuerpo de 13,5 pt o menos si no caben */
-    const ws = ordenar(s.palabras);
-    const cols = [0, 1, 2, 3].map(c => [c, c + 4, c + 8, c + 12].map(i => ws[i]));
+    /* Cuadrícula: normal, 15 casillas de 10 mm con letras de 17,5 pt;
+       ampliada, 18 casillas de 8,5 mm con letras de 14,8 pt, más arriba para que quepa la lista */
+    const celda = (amp ? 8.5 : 10) * B.MM, lado = s.grid.length * celda;
+    const yRej = amp ? 152 : 200.24;
+    dibujarRejilla(lz, f, s, (595.28 - lado) / 2, yRej, celda, amp ? 14.8 : 17.43, false);
+    /* Lista de palabras en cuatro columnas (4 filas en la normal, 6 en la ampliada):
+       cuerpo de 13,5 pt o menos si no caben */
+    const ws = ordenar(s.palabras), nf = ws.length / 4;
+    /* orden alfabético por filas, de izquierda a derecha, como en el cuaderno */
+    const cols = [0, 1, 2, 3].map(c => Array.from({ length: nf }, (_, r) => ws[r * 4 + c]));
     /* ancho en mm con las métricas de Helvetica Bold y el cuerpo en pt de TeX (1 pt = 0,3515 mm) */
-    const anchoMM = (w, ptTeX) => f.helvB.widthOfTextAtSize(B.normalizar(w).replace(/Ñ/g, 'N'), ptTeX) * 0.3515;
+    /* pdf-lib descuenta el interletraje (AV, VA…) al medir, pero no lo aplica al escribir:
+       se mide letra a letra para que LAVAVAJILLAS no se salga del margen */
+    const ancho = (w, t) => [...w].reduce((s, ch) => s + f.helvB.widthOfTextAtSize(ch, t), 0);
+    const anchoMM = (w, ptTeX) => ancho(B.normalizar(w).replace(/Ñ/g, 'N'), ptTeX) * 0.3515;
     let fpt = 13.5;
     while (true) {
       const need = cols.reduce((tot, col) => tot + Math.max(...col.map(w => anchoMM(w, fpt))) + 6.0, 0) + 3 * 7;
-      if (need <= 178 || fpt <= 10) break;
+      if (need <= 178 || fpt <= 9) break;
       fpt -= 0.5;
     }
     const fs = fpt * 0.99626;
-    const anchos = cols.map(col => 10.34 + 7.37 + Math.max(...col.map(w => f.helvB.widthOfTextAtSize(w.toUpperCase(), fs))));
+    const anchos = cols.map(col => 10.34 + 7.37 + Math.max(...col.map(w => ancho(w.toUpperCase(), fs))));
     const hueco = (510.24 - anchos.reduce((a, b) => a + b, 0) - 2 * 11.96) / 3;
     const xs = [42.52];
     xs.push(xs[0] + anchos[0] + hueco);
@@ -260,12 +282,15 @@
     xs.push(xs[2] + anchos[2] + 11.96 + hueco);
     /* altura de cada fila como en LaTeX: puntal de 11,16 bp o la mayúscula con tilde */
     const alto = fila => Math.max(11.16, ...fila.map(w => (/[ÁÉÍÓÚÑÜ]/.test(w.toUpperCase()) ? 0.926 : 0.72) * fs));
-    const filas = [0, 1, 2, 3].map(r => [0, 1, 2, 3].map(c => cols[c][r]));
-    let y = 690.16 + alto(filas[0]);
+    const filas = Array.from({ length: nf }, (_, r) => [0, 1, 2, 3].map(c => cols[c][r]));
+    /* en la normal, la lista empieza 64,8 bp por debajo de la cuadrícula (como en el cuaderno);
+       en la ampliada, algo más cerca y con filas un poco más juntas */
+    let y = (amp ? yRej + lado + 34 : 690.16) + alto(filas[0]);
+    const salto = amp ? 3.2 + 8.6 : 4.78 + 9.64;
     const casilla = B.rectRedondeado(3.4 * B.MM, 3.4 * B.MM, 0.6);
     const navy70 = B.hex('#617289');
     filas.forEach((fila, r) => {
-      if (r > 0) y += 4.78 + 9.64 + alto(fila);
+      if (r > 0) y += salto + alto(fila);
       fila.forEach((w, c) => {
         lz.svg(casilla, xs[c] + 0.35, y - 0.71 - 3.4 * B.MM, { borderColor: navy70, borderWidth: 0.6974 });
         lz.texto(w.toUpperCase(), xs[c] + 17.71, y, fs, f.helvB, tinta);
@@ -273,9 +298,9 @@
     });
   }
 
-  /* Soluciones: cuatro por página, en el orden de las fichas (maqueta de la página 53 del cuaderno) */
+  /* Soluciones: cuatro por página, en el orden de las fichas (maqueta de la página 53 del cuaderno).
+     Todas las cuadrículas miden 81 mm: casillas de 5,4 mm (normal) o 4,5 mm (ampliada). */
   function dibujarSoluciones(doc, f, lista) {
-    const celda = 5.4 * B.MM;
     for (let k = 0; k < lista.length; k += 4) {
       const pagina = doc.addPage(B.A4V);
       const lz = B.lienzo(pagina);
@@ -285,13 +310,118 @@
         const yb = j < 2 ? 118.06 : 395.67;
         lz.texto(codigo, x, yb, 11.96, f.helvB, B.hex(TURQ));
         lz.texto(sopa.titulo, x + f.helvB.widthOfTextAtSize(codigo, 11.96) + 9, yb, 11.96, f.helvB, B.hex(NAVY));
-        dibujarRejilla(lz, f, sopa, x + 2.74, yb + 9.6, celda, 9.96, true);
+        const N = sopa.grid.length;
+        dibujarRejilla(lz, f, sopa, x + 2.74, yb + 9.6, 81 * B.MM / N, 9.96 * 15 / N, true);
       });
     }
   }
 
+  /* ---------- Secuencia de temas y palabras ----------
+     Las sopas siguen una lista fija y numerada de NUM_SOPAS puestos; el navegador guarda por
+     dónde va (CLAVE_INDICE) y empieza en un punto al azar la primera vez.
+     · Puesto n: bloque b = n div T (T = número de temas). Cada bloque recorre todos los temas
+       en un orden barajado propio, así que un tema sale una vez por bloque y nunca dos
+       seguidos (si un bloque empezara con el tema con que acaba el anterior, se cambian los
+       dos primeros).
+     · La aparición b de un tema con P palabras usa la vuelta v = b div P de una baraja fija de
+       sus palabras y empieza en la posición (b mod P) · paso mod P (paso: el primer número
+       ≥ 16 sin divisores comunes con P; la baraja de cada vuelta se elige para que comparta
+       pocas palabras con el final de la anterior). Desde ahí toma 16 o 24 palabras seguidas, saltando las
+       que se contienen en otra ya tomada (PIE / PIERNA). Así, entre una aparición y la
+       siguiente cambian casi todas las palabras, y ningún tema repite el mismo juego de
+       palabras en sus 1200 apariciones (comprobado con herramientas/comprobar_secuencia.js).
+     Resultado: dentro de NUM_SOPAS = 96 000 puestos seguidos no hay dos sopas con el mismo
+     tema y las mismas palabras (y además cada cuadrícula se rellena al azar). */
+  const VUELTAS = 1200, CLAVE_INDICE = 'banco-trabajo-sopas-indice';
+
+  function sembrar(texto) {                 /* FNV-1a de 32 bits */
+    let h = 0x811c9dc5;
+    for (const ch of texto) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  function seContienen(a, b) {
+    const x = B.normalizar(a), y = B.normalizar(b);
+    const rx = [...x].reverse().join(''), ry = [...y].reverse().join('');
+    return x !== y && (y.includes(x) || y.includes(rx) || x.includes(y) || x.includes(ry));
+  }
+  function mcd(a, b) { while (b) [a, b] = [b, a % b]; return a; }
+
+  function ordenBloque(T, b) {
+    const baraja = o => B.barajar(B.crearAzar(sembrar('orden|' + o)), Array.from({ length: T }, (_, i) => i));
+    const orden = baraja(b);
+    const anterior = baraja((b + VUELTAS - 1) % VUELTAS);   /* el bloque 0 sigue al último */
+    if (orden[0] === anterior[T - 1]) [orden[0], orden[1]] = [orden[1], orden[0]];
+    return orden;
+  }
+
+  function tomar(baraja, inicio, k) {
+    const P = baraja.length, elegidas = [];
+    for (let i = 0; i < P && elegidas.length < k; i++) {
+      const w = baraja[(inicio + i) % P];
+      if (!elegidas.some(e => seContienen(e, w))) elegidas.push(w);
+    }
+    return elegidas;
+  }
+  function pasoDe(P) { let paso = 16; while (mcd(paso, P) !== 1) paso++; return paso; }
+
+  /* Baraja de la vuelta v de un tema. Para que al cambiar de vuelta tampoco se repitan muchas
+     palabras, la nueva baraja empieza por las que no salieron en la última aparición de la
+     vuelta anterior; de 20 candidatas se queda con la que menos comparte con ella (siempre la
+     misma elección: no depende del azar del navegador). */
+  const barajas = new Map();
+  function barajaVuelta(tema, v) {
+    if (!barajas.has(tema.t)) barajas.set(tema.t, []);
+    const lista = barajas.get(tema.t);
+    const P = tema.p.length, paso = pasoDe(P);
+    while (lista.length <= v) {
+      const w = lista.length;
+      if (w === 0) { lista.push(B.barajar(B.crearAzar(sembrar(tema.t + '|0|0')), tema.p.slice())); continue; }
+      const ultima = lista[w - 1], fin = ((P - 1) * paso) % P;
+      const antes = [16, 24].map(k => new Set(tomar(ultima, fin, k)));
+      /* delante, barajadas, las palabras que no salieron en esa última aparición; detrás, el resto */
+      const candidata = j => {
+        const azar = B.crearAzar(sembrar(tema.t + '|' + w + '|' + j));
+        return B.barajar(azar, tema.p.filter(x => !antes[1].has(x))).concat(B.barajar(azar, tema.p.filter(x => antes[1].has(x))));
+      };
+      let mejor = null, nota = Infinity;
+      for (let j = 0; j < 20; j++) {
+        const c = candidata(j);
+        const n = [16, 24].reduce((tot, k, i) => tot + tomar(c, 0, k).filter(x => antes[i].has(x)).length, 0);
+        if (n < nota) { nota = n; mejor = c; }
+      }
+      lista.push(mejor);
+    }
+    return lista[v];
+  }
+
+  function palabrasDe(tema, aparicion, k) {
+    const P = tema.p.length, paso = pasoDe(P);
+    const vuelta = Math.floor(aparicion / P), inicio = ((aparicion % P) * paso) % P;
+    const elegidas = tomar(barajaVuelta(tema, vuelta), inicio, k);
+    if (elegidas.length < k) throw new Error('El tema «' + tema.t + '» no tiene ' + k + ' palabras compatibles');
+    return elegidas;
+  }
+
+  /* Tema y palabras del puesto n de la secuencia */
+  function puesto(temas, n, formato) {
+    const T = temas.length, total = T * VUELTAS;
+    n = ((n % total) + total) % total;
+    const b = Math.floor(n / T), tema = temas[ordenBloque(T, b)[n % T]];
+    return { t: tema.t, p: palabrasDe(tema, b, 4 * FORMATOS[formato || 'normal'].porDir), puesto: n };
+  }
+
+  /* Los siguientes «cuantos» puestos para este navegador (y avanza el contador) */
+  function siguientes(temas, cuantos, formato, azar) {
+    const total = temas.length * VUELTAS;
+    let n = null;
+    try { const v = localStorage.getItem(CLAVE_INDICE); if (v !== null && /^\d+$/.test(v)) n = Number(v) % total; } catch (e) { /* sin almacenamiento */ }
+    if (n === null) n = Math.floor(azar() * total);
+    const lista = Array.from({ length: cuantos }, (_, i) => puesto(temas, n + i, formato));
+    return { lista, confirmar() { try { localStorage.setItem(CLAVE_INDICE, String((n + cuantos) % total)); } catch (e) { /* sin almacenamiento */ } } };
+  }
+
   B.sopas = {
-    N, generar, comprobar, ordenar,
+    FORMATOS, VUELTAS, generar, comprobar, ordenar, puesto, siguientes, palabrasDe, ordenBloque, seContienen,
     formatoCodigo() { return n => n + '-S'; },
     dibujarFicha, dibujarSoluciones
   };

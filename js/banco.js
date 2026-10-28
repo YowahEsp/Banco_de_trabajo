@@ -10,7 +10,7 @@
     { id: 'B', titulo: 'Sumas', que: '25 sumas de 2 o 3 filas, de 4 cifras' },
     { id: 'R', titulo: 'Restas', que: '25 restas de 4 cifras' },
     { id: 'M', titulo: 'Sumas y restas', que: '15 restas y 10 sumas mezcladas' },
-    { id: 'S', titulo: 'Sopa de letras', que: '16 palabras de un tema cotidiano' },
+    { id: 'S', titulo: 'Sopa de letras', que: '16 palabras de un tema cotidiano' },   /* cambia con el tamaño */
     { id: 'C', titulo: 'Crucigrama', que: '18 dibujos para escribir su nombre' }
   ];
 
@@ -79,6 +79,10 @@
   }
 
   /* ---------- tarjetas ---------- */
+  /* tamaño de la sopa elegido (se recuerda en este navegador) */
+  const CLAVE_TAM = 'banco-trabajo-tam-sopa';
+  let tamSopa = 'normal';
+  try { if (localStorage.getItem(CLAVE_TAM) === 'ampliada') tamSopa = 'ampliada'; } catch (e) { /* sin almacenamiento */ }
   const boton = document.getElementById('generar');
   const solCasilla = document.getElementById('soluciones');
   const estado = Object.fromEntries(TARJETAS.map(t => [t.id, 0]));
@@ -98,7 +102,12 @@
         <button type="button" data-paso="-1" aria-label="Una ficha menos de ${t.titulo.toLowerCase()}">−</button>
         <input type="number" min="0" max="${MAX}" value="0" inputmode="numeric" aria-label="Fichas de ${t.titulo.toLowerCase()}">
         <button type="button" data-paso="1" aria-label="Una ficha más de ${t.titulo.toLowerCase()}">+</button>
-      </div>`;
+      </div>${t.id === 'S' ? `
+      <fieldset class="tamano">
+        <legend>Tamaño de la sopa</legend>
+        <label><input type="radio" name="tam-sopa" value="normal"><b>Normal</b><small>15 × 15</small></label>
+        <label><input type="radio" name="tam-sopa" value="ampliada"><b>Ampliada</b><small>18 × 18</small></label>
+      </fieldset>` : ''}`;
     bandeja.appendChild(li);
     const input = li.querySelector('input');
     const fijar = v => {
@@ -116,11 +125,24 @@
     fijar(0);
   }
 
+  /* tamaño de la sopa (el navegador recuerda el último elegido) */
+  const queSopa = document.querySelector('.tipo[data-tipo="S"] .que');
+  const ponerTam = v => {
+    tamSopa = v === 'ampliada' ? 'ampliada' : 'normal';
+    document.querySelectorAll('input[name="tam-sopa"]').forEach(r => { r.checked = r.value === tamSopa; });
+    queSopa.textContent = (tamSopa === 'ampliada' ? '24' : '16') + ' palabras de un tema cotidiano';
+    try { localStorage.setItem(CLAVE_TAM, tamSopa); } catch (e) { /* sin almacenamiento */ }
+    resumir();
+  };
+  document.querySelectorAll('input[name="tam-sopa"]').forEach(r => r.addEventListener('change', () => ponerTam(r.value)));
+  ponerTam(tamSopa);
+
   function resumir() {
     const total = Object.values(estado).reduce((a, b) => a + b, 0);
     const res = document.getElementById('resumen');
     if (!total) { res.textContent = 'Aún no has elegido ninguna ficha.'; boton.disabled = true; boton.textContent = 'Generar fichas'; return; }
-    const partes = TARJETAS.filter(t => estado[t.id]).map(t => `${estado[t.id]} de ${t.titulo.toLowerCase()}`);
+    const partes = TARJETAS.filter(t => estado[t.id]).map(t => `${estado[t.id]} de ${t.titulo.toLowerCase()}`
+      + (t.id === 'S' && tamSopa === 'ampliada' ? ' (ampliada)' : ''));
     const lista = partes.length > 1 ? partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1] : partes[0];
     res.innerHTML = `<b>${total} ${total === 1 ? 'ficha' : 'fichas'}</b> (${total === 1 ? 'un folio' : total + ' folios'}, ${2 * total} hojas): ${lista}.`
       + (estado.C ? ' Los crucigramas tardan unos segundos cada uno.' : '');
@@ -137,7 +159,7 @@
   let enlaces = [];
 
   boton.addEventListener('click', async () => {
-    const pedido = Object.assign({}, estado, { soluciones: solCasilla.checked });
+    const pedido = Object.assign({}, estado, { soluciones: solCasilla.checked, tamSopa });
     boton.disabled = true;
     caja.hidden = false; caja.classList.remove('error');
     descargas.innerHTML = ''; codigos.hidden = true;

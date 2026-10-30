@@ -1,3 +1,15 @@
 .cache_arasaac/
 __pycache__/
 *.pyc
+# Programa y listas: solo se publican cifrados en datos/banco.cifrado (herramientas/candado.js)
+js/comun.js
+js/operaciones.js
+js/sopas.js
+js/crucigramas-motor.js
+js/crucigramas.js
+js/documento.js
+js/banco.js
+datos/sopas.json
+datos/crucigramas.json
+herramientas/temas_sopas.py
+herramientas/lista_crucigramas.py

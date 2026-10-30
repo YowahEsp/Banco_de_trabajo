@@ -2,7 +2,9 @@
 
 Generador de fichas para el banco de trabajo del aula (Educación de Personas Adultas). Se elige cuántas fichas se quieren de cada tipo y salen los PDF listos para imprimir, con su solucionario.
 
-**Web:** https://yowahesp.github.io/Banco_de_trabajo/
+**Web:** https://yowahesp.github.io/Banco_de_trabajo/ (con contraseña)
+
+> **Acceso con contraseña.** El programa del generador y sus listas de palabras se publican cifrados en `datos/banco.cifrado` (AES-GCM de 256 bits; clave sacada de la contraseña con PBKDF2-SHA-256 y 600 000 vueltas, como en SUPER MATH CODE). La contraseña no está en ningún archivo: sin ella la página no puede generar fichas. Los archivos de `js/` (salvo `vendor/`), `datos/*.json`, `herramientas/temas_sopas.py` y `herramientas/lista_crucigramas.py` solo existen en tu ordenador después de descifrarlos (ver «Mantenimiento»).
 
 | Tipo | Qué lleva cada hoja | Código |
 |---|---|---|
@@ -44,7 +46,8 @@ Nada está hecho desde cero: cada tipo copia el trabajo ya aprobado. Este reposi
 ## Archivos
 
 ```
-index.html                  página del generador
+index.html                  página del generador y candado
+datos/banco.cifrado         programa y listas, cifrados (lo que se publica)
 js/comun.js                 azar, códigos, utilidades de dibujo
 js/operaciones.js           sumas, restas y mixta (hoja amplia)
 js/sopas.js                 sopas de letras: generación, comprobación y dibujo
@@ -61,6 +64,19 @@ herramientas/               lista de palabras, preparación de pictogramas y com
 ```
 
 ## Mantenimiento
+
+**Abrir y cerrar el candado** (necesita Node 18 o más)
+
+Antes de tocar nada, descifra los archivos; al acabar, vuelve a cifrarlos y sube solo `datos/banco.cifrado`:
+
+```bash
+node herramientas/candado.js abrir     # pide la contraseña y deja js/, datos/… en su sitio
+# … cambios, comprobaciones …
+node herramientas/candado.js cerrar    # pide la contraseña (dos veces) y crea datos/banco.cifrado
+git add datos/banco.cifrado && git commit -m "…" && git push
+```
+
+Los archivos descifrados están en `.gitignore`, así que no se suben por descuido. Para **cambiar la contraseña**: `abrir` con la antigua y `cerrar` con la nueva.
 
 **Cambiar o añadir palabras de los crucigramas**
 

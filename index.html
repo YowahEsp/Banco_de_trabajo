@@ -159,11 +159,45 @@
     .acciones { padding: 16px; }
     .boton { width: 100%; }
   }
+  /* ---------- candado ---------- */
+  .candado { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .candado[hidden] { display: none; }
+  .puerta {
+    width: 100%; max-width: 420px; background: var(--hoja); border: 1px solid #C9D1DC; border-radius: 14px;
+    padding: 30px 28px 26px; box-shadow: 0 1px 0 rgba(27, 35, 50, .05), 0 12px 32px rgba(27, 35, 50, .08);
+  }
+  .puerta .marca { font: 700 .78rem var(--titulo); letter-spacing: .2em; text-transform: uppercase; color: var(--turquesa); margin: 0 0 6px; }
+  .puerta h1 { font-size: 2.1rem; margin: 0 0 8px; }
+  .puerta p { margin: 0 0 18px; color: var(--suave); }
+  .fila-clave { display: flex; gap: 10px; }
+  .fila-clave input {
+    flex: 1; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #C9D1DC; border-radius: 10px;
+    font: 600 1.05rem var(--texto); color: var(--tinta); background: var(--papel);
+  }
+  .fila-clave input:focus { border-color: var(--turquesa); outline: none; box-shadow: 0 0 0 3px rgba(42, 157, 143, .2); }
+  .aviso-clave { min-height: 1.4em; margin: 12px 0 0; font-weight: 600; font-size: .95rem; color: var(--suave); }
+  .aviso-clave.mal { color: var(--error); animation: temblor .35s; }
+  .aviso-clave.bien { color: var(--turquesa-osc); }
+  @keyframes temblor { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+  @media (max-width: 420px) { .fila-clave { flex-direction: column; } .fila-clave input { flex: none; } .fila-clave .boton { width: 100%; } }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<main>
+<section class="candado" id="candado" aria-label="Acceso">
+  <form class="puerta" id="puerta" autocomplete="off">
+    <p class="marca">Acceso restringido</p>
+    <h1>Banco de trabajo</h1>
+    <p>Introduce la contraseña para desbloquear el generador de fichas.</p>
+    <div class="fila-clave">
+      <input type="password" id="clave" placeholder="contraseña" aria-label="Contraseña" autocomplete="off" spellcheck="false" enterkeyhint="go" autofocus>
+      <button class="boton" id="desbloquear" type="submit">Desbloquear</button>
+    </div>
+    <p class="aviso-clave" id="aviso-clave" aria-live="polite"></p>
+  </form>
+</section>
+
+<main id="principal" hidden>
   <h1>Banco de trabajo</h1>
   <p class="entrada">Elige cuántas fichas quieres de cada tipo. <strong>Cada ficha es un folio a doble cara</strong>: dos hojas distintas del mismo tipo, cada una con su código. Todas salen nuevas cada vez.</p>
 
@@ -208,12 +242,66 @@
 
 <script src="js/vendor/pdf-lib.min.js"></script>
 <script src="js/vendor/fontkit.umd.min.js"></script>
-<script src="js/comun.js"></script>
-<script src="js/operaciones.js"></script>
-<script src="js/sopas.js"></script>
-<script src="js/crucigramas-motor.js"></script>
-<script src="js/crucigramas.js"></script>
-<script src="js/documento.js"></script>
-<script src="js/banco.js"></script>
+<script>
+/* Candado (como en SUPER MATH CODE): el programa y las listas de palabras están cifrados en
+   datos/banco.cifrado con AES-GCM; la clave sale de la contraseña con PBKDF2-SHA-256 y
+   600 000 vueltas. La contraseña no está en ningún archivo: sin ella no hay nada que ejecutar.
+   Para cambiar el programa o la contraseña: herramientas/candado.js. */
+(function () {
+  'use strict';
+  const SCRIPTS = ['js/comun.js', 'js/operaciones.js', 'js/sopas.js', 'js/crucigramas-motor.js',
+    'js/crucigramas.js', 'js/documento.js', 'js/banco.js'];
+  const $ = id => document.getElementById(id);
+  const deB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  let paquete = null;
+  const pedirPaquete = () => paquete || (paquete = fetch('datos/banco.cifrado', { cache: 'no-cache' }).then(r => {
+    if (!r.ok) throw new Error('sin paquete'); return r.json();
+  }));
+
+  async function descifrar(pw) {
+    const p = await pedirPaquete();
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    const clave = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: deB64(p.salt), iterations: p.iter, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const datos = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: deB64(p.iv) }, clave, deB64(p.ct));
+    return JSON.parse(new TextDecoder().decode(datos));
+  }
+  function cargar(url) {
+    return new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = url; s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar el programa'));
+      document.body.appendChild(s);
+    });
+  }
+  async function entrar(e) {
+    if (e) e.preventDefault();
+    const pw = $('clave').value, aviso = $('aviso-clave');
+    if (!pw) return;
+    $('desbloquear').disabled = true;
+    aviso.className = 'aviso-clave'; aviso.textContent = 'Descifrando…';
+    let archivos;
+    try { archivos = await descifrar(pw); }
+    catch (err) {
+      aviso.className = 'aviso-clave mal';
+      aviso.textContent = err.message === 'sin paquete' || err instanceof TypeError
+        ? 'No se ha podido cargar el generador. Comprueba la conexión y vuelve a intentarlo.'
+        : '✗ Contraseña incorrecta';
+      $('desbloquear').disabled = false; $('clave').select();
+      return;
+    }
+    window.BANCO_ARCHIVOS = {}; window.BANCO_URLS = {};
+    for (const [ruta, contenido] of Object.entries(archivos)) {
+      const bytes = deB64(contenido);
+      if (ruta.endsWith('.js')) window.BANCO_URLS[ruta] = URL.createObjectURL(new Blob([bytes], { type: 'text/javascript' }));
+      else window.BANCO_ARCHIVOS[ruta] = bytes;
+    }
+    aviso.className = 'aviso-clave bien'; aviso.textContent = '✓ Acceso concedido';
+    for (const ruta of SCRIPTS) await cargar(window.BANCO_URLS[ruta]);
+    $('candado').hidden = true; $('principal').hidden = false;
+  }
+  $('puerta').addEventListener('submit', entrar);
+  pedirPaquete().catch(() => { paquete = null; });   /* se adelanta la descarga */
+})();
+</script>
 </body>
 </html>
